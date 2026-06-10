@@ -130,9 +130,28 @@ Copy `config.example.json` to `config.json` (the installer does this for you) an
 The top bar has four views:
 
 - **Live** - a master/detail console. The left rail lists live and recent sessions (tool-colored, with context %, skill/memory/agent/git counts); selecting one expands its banner (title, model, guiding context, capability gaps) and its live event feed, streamed over Server-Sent Events.
+
+  <p align="center">
+    <img src="docs/screenshots/dashboard_live.png" alt="GLMPS Live View" width="100%">
+  </p>
+
 - **History** - every recorded session, filterable by project, tool, date, and skill, with full-text search across transcripts and one-click resume.
+
+  <p align="center">
+    <img src="docs/screenshots/dashboard_history.png" alt="GLMPS History View" width="100%">
+  </p>
+
 - **Analytics** - usage over time: cost and token trends, an activity heatmap, and per-model and per-project breakdowns. Hand-built charts, no charting library.
+
+  <p align="center">
+    <img src="docs/screenshots/dashboard_analytics.png" alt="GLMPS Analytics View" width="100%">
+  </p>
+
 - **Learning** - the capability-gap and idea queue (see below).
+
+  <p align="center">
+    <img src="docs/screenshots/dashboard_learning.png" alt="GLMPS Learning View" width="100%">
+  </p>
 
 Other built-ins: copy-to-prompt for unused inventory, in-dashboard editing of context files (with undo), a "New terminal" launcher that opens a chosen CLI as an Antigravity editor tab, resume-into-Antigravity, and a settings menu to restart the server and open `config.json`.
 

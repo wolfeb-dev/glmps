@@ -1,6 +1,6 @@
 // web/history.js
 import { getState, search, resume } from './api.js';
-import { toolColorClass } from './grid.js';
+import { toolColorClass, badgeText } from './grid.js';
 
 function setText(el, s) { el.textContent = String(s ?? ''); }
 
@@ -243,8 +243,7 @@ function buildTableRow(entry, sessions, handlers, menuCleanups) {
   const badge = document.createElement('span');
   const badgeColor = toolColorClass(entry.tool);
   badge.className = 'tool-badge' + (badgeColor !== 'muted' ? ' tool-badge-' + badgeColor : '');
-  const toolBadgeMap = { 'claude-code': 'CC', 'antigravity': 'AG', 'agy-cli': 'AGY', 'gemini-cli': 'GEM' };
-  setText(badge, toolBadgeMap[entry.tool] ?? entry.tool.slice(0, 3).toUpperCase());
+  setText(badge, badgeText(entry.tool));
   toolEl.appendChild(badge);
 
   // Last activity

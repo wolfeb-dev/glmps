@@ -73,6 +73,19 @@ test('codex extractLine: session_meta with cwd -> meta event', () => {
   assert.equal(evs[0].path, '/home/u/proj');
 });
 
+test('codex extractLine: turn_context emits cwd + model meta events', () => {
+  const line = JSON.stringify({ type: 'turn_context',
+    payload: { cwd: 'D:\\proj', model: 'gpt-5.5' } });
+  const evs = codex.extractLine(line, 'sid');
+  assert.equal(evs.length, 2);
+  const cwdEv = evs.find(e => e.label === 'cwd');
+  const modelEv = evs.find(e => e.label === 'model');
+  assert.equal(cwdEv.kind, 'meta');
+  assert.equal(cwdEv.path, 'D:\\proj');
+  assert.equal(modelEv.kind, 'meta');
+  assert.equal(modelEv.model, 'gpt-5.5');
+});
+
 test('codex extractLine: user message (array content) -> user feed event', () => {
   const line = JSON.stringify({
     timestamp: 't', type: 'response_item',
@@ -159,6 +172,30 @@ test('codex extractLine: function_call shell with git command -> git event', () 
   assert.equal(evs[0].gitOp, 'push');
 });
 
+test('codex extractLine: function_call shell_command -> Bash command event', () => {
+  const line = JSON.stringify({
+    type: 'response_item',
+    payload: { type: 'function_call', name: 'shell_command',
+      arguments: '{"command":"ls -la","workdir":"D:\\\\proj","timeout":120}' },
+  });
+  const evs = codex.extractLine(line, 'sid');
+  assert.equal(evs.length, 1);
+  assert.equal(evs[0].kind, 'command');
+  assert.equal(evs[0].tool, 'Bash');
+  assert.ok(evs[0].label.includes('ls -la'));
+});
+
+test('codex extractLine: shell_command with git command -> git event', () => {
+  const line = JSON.stringify({
+    type: 'response_item',
+    payload: { type: 'function_call', name: 'shell_command',
+      arguments: { command: 'git commit -m "feat: x"' } },
+  });
+  const evs = codex.extractLine(line, 'sid');
+  assert.equal(evs[0].kind, 'git');
+  assert.equal(evs[0].gitOp, 'commit');
+});
+
 test('codex extractLine: function_call non-shell -> tool event with path', () => {
   const line = JSON.stringify({
     type: 'response_item',
@@ -219,6 +256,27 @@ test('codex extractLine: token_count uses last_token_usage fallback', () => {
   const evs = codex.extractLine(line, sid);
   assert.equal(evs[0].change.input, 5);
   assert.equal(evs[0].change.output, 3);
+});
+
+test('codex extractLine: token_count carries cumulative totals + context window', () => {
+  const sid = 'tok-sid3';
+  codex.resetTokenState(sid);
+  const line = JSON.stringify({
+    type: 'event_msg', timestamp: '2026-06-10T15:05:10.000Z',
+    payload: { type: 'token_count', info: {
+      total_token_usage: { input_tokens: 13302, cached_input_tokens: 1920, output_tokens: 44, total_tokens: 13346 },
+      last_token_usage: { input_tokens: 13302, cached_input_tokens: 1920, output_tokens: 44, total_tokens: 13346 },
+      model_context_window: 258400,
+    } },
+  });
+  const evs = codex.extractLine(line, sid);
+  assert.equal(evs.length, 1);
+  const c = evs[0].change;
+  assert.equal(c.totalInput, 13302);
+  assert.equal(c.totalOutput, 44);
+  assert.equal(c.totalCached, 1920);
+  assert.equal(c.contextWindow, 258400);
+  assert.equal(c.lastTurnTokens, 13346);
 });
 
 // ── robustness ────────────────────────────────────────────────────────────────

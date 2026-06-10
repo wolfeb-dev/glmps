@@ -26,7 +26,10 @@ function mkEnv() {
            GLMPS_STATE_DIR: path.join(tmp, 'state'),
            GLMPS_GEMINI_TMP_DIR: path.join(tmp, 'gemini-tmp'),
            GLMPS_VSCODE_STORAGE_DIR: path.join(tmp, 'vscode-storage'),
-           GLMPS_AGY_CLI_DIR: path.join(tmp, 'agy-cli') },
+           GLMPS_AGY_CLI_DIR: path.join(tmp, 'agy-cli'),
+           GLMPS_CODEX_DIR: path.join(tmp, 'codex'),
+           GLMPS_HERMES_DIR: path.join(tmp, 'hermes'),
+           GLMPS_OPENCODE_DIR: path.join(tmp, 'opencode') },
   };
 }
 

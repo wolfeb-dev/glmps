@@ -71,10 +71,11 @@ test('openclaw exports extractLine', () => {
   assert.equal(typeof oc.extractLine, 'function', 'openclaw missing extractLine');
 });
 
-test('hermes exports extractLine', () => {
+test('hermes exports extractSteps (sqlite-steps adapter)', () => {
   const h = adapters.find(a => a.id === 'hermes');
   assert.ok(h, 'hermes adapter not found');
-  assert.equal(typeof h.extractLine, 'function', 'hermes missing extractLine');
+  assert.equal(typeof h.extractSteps, 'function', 'hermes missing extractSteps');
+  assert.equal(typeof h.discover, 'function', 'hermes missing discover');
 });
 
 test('detectAll returns array of 16 entries (10 deep + 6 detect-only) with required shape', () => {

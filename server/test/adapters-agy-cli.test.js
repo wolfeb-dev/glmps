@@ -37,6 +37,27 @@ function makePayload(...runs) {
   return Buffer.concat(pieces);
 }
 
+// Encode an unsigned int as a protobuf varint.
+function varint(n) {
+  const bytes = [];
+  let v = BigInt(n);
+  for (;;) {
+    const b = Number(v & 0x7fn);
+    v >>= 7n;
+    if (v) bytes.push(b | 0x80);
+    else { bytes.push(b); break; }
+  }
+  return Buffer.from(bytes);
+}
+
+// Build a steps.metadata protobuf blob whose top-level field 1 is a
+// google.protobuf.Timestamp (inner field 1 = seconds). Mirrors the real
+// Antigravity CLI schema where field 1 is the step's creation time.
+function makeTimestampMetadata(seconds) {
+  const inner = Buffer.concat([Buffer.from([0x08]), varint(seconds)]); // Timestamp field 1 (varint)
+  return Buffer.concat([Buffer.from([0x0a]), varint(inner.length), inner]); // metadata field 1 (len-delimited msg)
+}
+
 // ── detect ────────────────────────────────────────────────────────────────────
 
 test('agy-cli detect: installed=false when agyCliDir missing', () => {
@@ -459,6 +480,101 @@ test('agy-cli extractSteps: run_command git commit -> git/context', async (t) =>
   const ev = result.events[0];
   assert.equal(ev.kind, 'git');
   assert.equal(ev.lane, 'context');
+});
+
+// ── timestamps from steps.metadata ────────────────────────────────────────────
+
+test('agy-cli extractSteps: populates ts (ms) from steps.metadata protobuf timestamp', async (t) => {
+  skipIfNoSqlite(t);
+  if (!DatabaseSync) return;
+
+  const tmp = mkTmp();
+  const dbPath = path.join(tmp, 'ts.db');
+  const db = new DatabaseSync(dbPath);
+  // Real DBs carry a metadata BLOB column alongside step_payload.
+  db.exec('CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, metadata BLOB, step_payload BLOB)');
+
+  const seconds = 1780630311; // 2026-06-05T...Z
+  const metadata = makeTimestampMetadata(seconds);
+  const payload = makePayload(
+    'abc12345', 'search_web',
+    '{"toolAction":"Searching","toolSummary":"Web search"}',
+  );
+  db.prepare('INSERT INTO steps (idx, step_type, metadata, step_payload) VALUES (?, ?, ?, ?)')
+    .run(0, 21, metadata, payload);
+  db.close();
+
+  const result = adapter.extractSteps(dbPath, -1);
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].ts, seconds * 1000, 'ts is epoch milliseconds');
+});
+
+test('agy-cli extractSteps: ts present on git events from metadata too', async (t) => {
+  skipIfNoSqlite(t);
+  if (!DatabaseSync) return;
+
+  const tmp = mkTmp();
+  const dbPath = path.join(tmp, 'ts-git.db');
+  const db = new DatabaseSync(dbPath);
+  db.exec('CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, metadata BLOB, step_payload BLOB)');
+
+  const seconds = 1780630999;
+  const metadata = makeTimestampMetadata(seconds);
+  const payload = makePayload(
+    'yy998877', 'run_command',
+    '{"CommandLine":"git commit -m \\"feat: ship it\\"","toolAction":"Committing","toolSummary":"Run command"}',
+  );
+  db.prepare('INSERT INTO steps (idx, step_type, metadata, step_payload) VALUES (?, ?, ?, ?)')
+    .run(0, 21, metadata, payload);
+  db.close();
+
+  const result = adapter.extractSteps(dbPath, -1);
+  const git = result.events.filter(e => e.kind === 'git');
+  assert.equal(git.length, 1);
+  assert.equal(git[0].ts, seconds * 1000);
+});
+
+test('agy-cli extractSteps: no metadata column -> events still produced, ts null (back-compat)', async (t) => {
+  skipIfNoSqlite(t);
+  if (!DatabaseSync) return;
+
+  const tmp = mkTmp();
+  const dbPath = path.join(tmp, 'no-metadata.db');
+  const db = new DatabaseSync(dbPath);
+  // Legacy / test schema with no metadata column must keep working.
+  db.exec('CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, step_payload BLOB)');
+  const payload = makePayload(
+    'abc12345', 'search_web',
+    '{"toolAction":"Searching","toolSummary":"Web search"}',
+  );
+  db.prepare('INSERT INTO steps VALUES (?, ?, ?)').run(0, 21, payload);
+  db.close();
+
+  const result = adapter.extractSteps(dbPath, -1);
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].ts, null);
+});
+
+test('agy-cli extractSteps: malformed metadata -> ts null, no throw', async (t) => {
+  skipIfNoSqlite(t);
+  if (!DatabaseSync) return;
+
+  const tmp = mkTmp();
+  const dbPath = path.join(tmp, 'bad-metadata.db');
+  const db = new DatabaseSync(dbPath);
+  db.exec('CREATE TABLE steps (idx INTEGER PRIMARY KEY, step_type INTEGER, metadata BLOB, step_payload BLOB)');
+  const payload = makePayload(
+    'abc12345', 'search_web',
+    '{"toolAction":"Searching","toolSummary":"Web search"}',
+  );
+  // Garbage that is not a field-1 length-delimited Timestamp.
+  db.prepare('INSERT INTO steps (idx, step_type, metadata, step_payload) VALUES (?, ?, ?, ?)')
+    .run(0, 21, Buffer.from([0xff, 0x01, 0x02]), payload);
+  db.close();
+
+  const result = adapter.extractSteps(dbPath, -1);
+  assert.equal(result.events.length, 1);
+  assert.equal(result.events[0].ts, null);
 });
 
 // ── processAliveMs ────────────────────────────────────────────────────────────

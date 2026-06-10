@@ -23,6 +23,76 @@ const MEMORY_RE = /[\\/]memory[\\/][^\\/]+\.md$/i;
 const SKILL_PATH_RE = /[\\/]\.agents[\\/]skills[\\/]/i;
 const SKILL_NAME_RE = /SKILL\.md$/i;
 
+// ── protobuf timestamp decode ──────────────────────────────────────────────────
+// steps.metadata is a protobuf message whose top-level field 1 is a
+// google.protobuf.Timestamp (inner field 1 = epoch seconds) marking when the step
+// was created. We read just that field to give each event a wall-clock time.
+
+/** Read a base-128 varint at offset o. Returns [value (Number), nextOffset]. */
+function readVarint(buf, o) {
+  let val = 0, shift = 0;
+  while (o < buf.length) {
+    const b = buf[o++];
+    val += (b & 0x7f) * 2 ** shift; // multiply (not <<) so values > 2^31 stay exact
+    if (!(b & 0x80)) break;
+    shift += 7;
+  }
+  return [val, o];
+}
+
+/** Return the bytes of the first length-delimited (wire 2) field `target`, or null. */
+function findLenField(buf, target) {
+  let p = 0;
+  while (p < buf.length) {
+    let tag; [tag, p] = readVarint(buf, p);
+    const field = tag >>> 3, wire = tag & 7;
+    if (wire === 2) {
+      let len; [len, p] = readVarint(buf, p);
+      if (field === target) return buf.subarray(p, p + len);
+      p += len;
+    } else if (wire === 0) { [, p] = readVarint(buf, p); }
+    else if (wire === 5) p += 4;
+    else if (wire === 1) p += 8;
+    else return null; // unknown wire type → bail
+  }
+  return null;
+}
+
+/** Return the value of the first varint (wire 0) field `target`, or null. */
+function findVarintField(buf, target) {
+  let p = 0;
+  while (p < buf.length) {
+    let tag; [tag, p] = readVarint(buf, p);
+    const field = tag >>> 3, wire = tag & 7;
+    if (wire === 0) {
+      let v; [v, p] = readVarint(buf, p);
+      if (field === target) return v;
+    } else if (wire === 2) {
+      let len; [len, p] = readVarint(buf, p);
+      p += len;
+    } else if (wire === 5) p += 4;
+    else if (wire === 1) p += 8;
+    else return null;
+  }
+  return null;
+}
+
+/**
+ * Step creation time as epoch milliseconds from a steps.metadata BLOB, or null.
+ * @param {Buffer|Uint8Array|null|undefined} md
+ * @returns {number|null}
+ */
+export function readStepTsMs(md) {
+  if (!md) return null;
+  try {
+    const buf = Buffer.isBuffer(md) ? md : Buffer.from(md);
+    const tsMsg = findLenField(buf, 1);
+    if (!tsMsg) return null;
+    const sec = findVarintField(tsMsg, 1);
+    return sec == null ? null : sec * 1000;
+  } catch { return null; }
+}
+
 /**
  * Returns the most recent heartbeat timestamp (ms) for the agy CLI process.
  * Checks cli.log and the newest file under log/, returns the max; 0 on errors.
@@ -189,8 +259,11 @@ export function extractSteps(file, sinceIdx) {
   let db = null;
   try {
     db = new DatabaseSync(file, { readonly: true });
+    // Older/synthetic DBs may lack the metadata column; select it only when present.
+    const hasMeta = db.prepare('PRAGMA table_info(steps)').all().some(c => c.name === 'metadata');
+    const cols = hasMeta ? 'idx, step_type, step_payload, metadata' : 'idx, step_type, step_payload';
     const rows = db.prepare(
-      'SELECT idx, step_type, step_payload FROM steps WHERE idx > ? ORDER BY idx LIMIT 500'
+      `SELECT ${cols} FROM steps WHERE idx > ? ORDER BY idx LIMIT 500`
     ).all(sinceIdx);
 
     const events = [];
@@ -205,6 +278,7 @@ export function extractSteps(file, sinceIdx) {
       const ua = row.step_payload;
       if (!ua) continue;
       const buf = Buffer.isBuffer(ua) ? ua : Buffer.from(ua);
+      const ts = hasMeta ? readStepTsMs(row.metadata) : null;
 
       if (wantTitle && title === null && row.idx < 10) {
         const candidate = extractTitleCandidate(buf);
@@ -221,24 +295,24 @@ export function extractSteps(file, sinceIdx) {
           const cmdStr = cmdArg ?? toolAction ?? toolSummary ?? '';
           const g = classifyGit(cmdStr);
           if (g) {
-            events.push({ ...g, tool: name, path: p || null, ts: null });
+            events.push({ ...g, tool: name, path: p || null, ts });
             continue;
           }
           const label = cleanTitle(toolSummary ?? toolAction ?? cmdArg ?? name, 120) ?? name;
-          events.push({ kind: 'command', lane: 'feed', tool: name, path: p || null, ts: null, label });
+          events.push({ kind: 'command', lane: 'feed', tool: name, path: p || null, ts, label });
           continue;
         }
 
         if (name === 'view_file') {
           const label = cleanTitle(toolSummary ?? toolAction ?? name, 120) ?? name;
           if (SKILL_NAME_RE.test(p) || SKILL_PATH_RE.test(p)) {
-            events.push({ kind: 'skill', lane: 'context', tool: name, path: p || null, ts: null, label, op: 'read' });
+            events.push({ kind: 'skill', lane: 'context', tool: name, path: p || null, ts, label, op: 'read' });
           } else if (CONTEXT_FILE_RE.test(p)) {
-            events.push({ kind: 'context-file', lane: 'context', tool: name, path: p || null, ts: null, label, op: 'read' });
+            events.push({ kind: 'context-file', lane: 'context', tool: name, path: p || null, ts, label, op: 'read' });
           } else if (MEMORY_RE.test(p)) {
-            events.push({ kind: 'memory', lane: 'context', tool: name, path: p || null, ts: null, label, op: 'read' });
+            events.push({ kind: 'memory', lane: 'context', tool: name, path: p || null, ts, label, op: 'read' });
           } else {
-            events.push({ kind: 'tool', lane: 'feed', tool: name, path: p || null, ts: null, label });
+            events.push({ kind: 'tool', lane: 'feed', tool: name, path: p || null, ts, label });
           }
           continue;
         }
@@ -246,17 +320,17 @@ export function extractSteps(file, sinceIdx) {
         if (/^(write_to_file|replace_file_content|multi_replace_file_content)$/.test(name)) {
           const label = cleanTitle(toolSummary ?? toolAction ?? name, 120) ?? name;
           if (CONTEXT_FILE_RE.test(p)) {
-            events.push({ kind: 'context-file', lane: 'context', tool: name, path: p || null, ts: null, label, op: 'write' });
+            events.push({ kind: 'context-file', lane: 'context', tool: name, path: p || null, ts, label, op: 'write' });
           } else if (MEMORY_RE.test(p)) {
-            events.push({ kind: 'memory', lane: 'context', tool: name, path: p || null, ts: null, label, op: 'write' });
+            events.push({ kind: 'memory', lane: 'context', tool: name, path: p || null, ts, label, op: 'write' });
           } else {
-            events.push({ kind: 'file-edit', lane: 'feed', tool: name, path: p || null, ts: null, label });
+            events.push({ kind: 'file-edit', lane: 'feed', tool: name, path: p || null, ts, label });
           }
           continue;
         }
 
         const label = cleanTitle(toolSummary ?? toolAction ?? name, 120) ?? name;
-        events.push({ kind: 'tool', lane: 'feed', tool: name, path: p || null, ts: null, label });
+        events.push({ kind: 'tool', lane: 'feed', tool: name, path: p || null, ts, label });
       }
     }
 

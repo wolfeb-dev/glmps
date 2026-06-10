@@ -66,7 +66,7 @@ export function discover(P) {
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
-const TOOL_NAME_MAP = { exec_command: 'Bash', shell: 'Bash', write_stdin: 'Bash' };
+const TOOL_NAME_MAP = { exec_command: 'Bash', shell: 'Bash', shell_command: 'Bash', write_stdin: 'Bash' };
 function mapToolName(name) { return TOOL_NAME_MAP[name] ?? name; }
 
 /** Pull concatenated text out of a Codex message content array/string. */
@@ -157,11 +157,14 @@ export function extractLine(line, sessionId) {
   const payload = obj.payload ?? obj;
   const ts = obj.timestamp ?? null;
 
-  // session_meta / turn_context: surface cwd as a meta event (server upserts)
+  // session_meta / turn_context: surface cwd + model as meta events (server upserts)
   if (type === 'session_meta' || type === 'turn_context') {
+    const out = [];
     const cwd = payload?.cwd ?? null;
-    if (cwd) return [{ kind: 'meta', lane: 'feed', label: 'cwd', path: cwd, sessionId }];
-    return [];
+    if (cwd) out.push({ kind: 'meta', lane: 'feed', label: 'cwd', path: cwd, sessionId });
+    const model = typeof payload?.model === 'string' && payload.model ? payload.model : null;
+    if (model) out.push({ kind: 'meta', lane: 'feed', label: 'model', model, sessionId });
+    return out;
   }
 
   // event_msg: dedup user_message/agent_message against response_item copies;
@@ -185,10 +188,17 @@ export function extractLine(line, sessionId) {
       }
       tokenState.set(sessionId, totals);
       const nonCachedInput = Math.max(0, delta.input - delta.cached);
+      const contextWindow = Number(payload?.info?.model_context_window);
+      const lastTurn = Number(payload?.info?.last_token_usage?.total_tokens);
       return [{
         kind: 'tokens', lane: 'feed', tool: 'tokens', path: null, ts, sessionId,
         label: `tokens +${nonCachedInput} in / +${delta.output} out`,
-        change: { input: nonCachedInput, output: delta.output, cached: delta.cached },
+        change: {
+          input: nonCachedInput, output: delta.output, cached: delta.cached,
+          totalInput: totals.input, totalOutput: totals.output, totalCached: totals.cached,
+          ...(Number.isFinite(contextWindow) && contextWindow > 0 ? { contextWindow } : {}),
+          ...(Number.isFinite(lastTurn) ? { lastTurnTokens: lastTurn } : {}),
+        },
       }];
     }
     return [];

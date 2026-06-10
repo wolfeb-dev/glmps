@@ -16,6 +16,12 @@ export function getPaths(env = process.env) {
   const antigravityDir = antigravityDirs[0]; // primary (kept for backward compat)
   const stateDir = env.GLMPS_STATE_DIR ?? path.join(home, '.glmps');
   const appData = env.APPDATA ?? path.join(home, 'AppData', 'Roaming');
+  const localAppData = env.LOCALAPPDATA ?? path.join(home, 'AppData', 'Local');
+
+  // Hermes agent home: $HERMES_HOME (a persisted user var on Windows), else platform default
+  // (%LOCALAPPDATA%\hermes on Windows, ~/.hermes on POSIX). GLMPS_HERMES_DIR overrides (tests).
+  const hermesDir = env.GLMPS_HERMES_DIR ?? env.HERMES_HOME
+    ?? (process.platform === 'win32' ? path.join(localAppData, 'hermes') : path.join(home, '.hermes'));
   const geminiTmpDir = env.GLMPS_GEMINI_TMP_DIR ?? path.join(home, '.gemini', 'tmp');
   const vscodeStorageDirs = env.GLMPS_VSCODE_STORAGE_DIR
     ? [env.GLMPS_VSCODE_STORAGE_DIR]
@@ -57,6 +63,7 @@ export function getPaths(env = process.env) {
     opencodeDir,
     codexDir,
     clineStorageDir,
+    hermesDir,
     assetsDir: env.GLMPS_ASSETS_DIR ?? path.join(home, 'glmps-assets'),
   };
 }

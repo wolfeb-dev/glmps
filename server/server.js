@@ -23,7 +23,7 @@ import { detectGaps } from './lib/gap-detect.js';
 import * as learningStore from './lib/learning-store.js';
 import { applyGuard, enqueueIdeaApply, buildIdeaApplyCommand, ingestResults } from './lib/learning-apply.js';
 import { buildTerminalRequest } from './lib/terminal-request.js';
-import { readUsage } from './lib/usage-store.js';
+import { readUsage, appendSnapshot } from './lib/usage-store.js';
 import { pickTitle, cleanFirstPrompt } from './lib/session-title.js';
 
 const WEB_DIR = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..', 'web');
@@ -71,6 +71,9 @@ function resolveIcons() {
     ...base,
     // Antigravity-family tools share the Antigravity icon
     'agy-cli': base['antigravity'],
+    // Tools without an install-resolved logo ship a bundled brand mark.
+    'codex-cli': path.join(WEB_DIR, 'icons', 'codex.svg'),
+    'hermes': path.join(WEB_DIR, 'icons', 'hermes.svg'),
   };
 }
 
@@ -117,16 +120,65 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
   let agAlive = false;
   let agLabels = new Map();                                // uuid -> {title, workspace}
   let agLabelsMtimes = new Map();                          // pbPath -> mtimeMs (for refresh detection)
+  const tokenStats = new Map();                            // sessionId -> { totalInput, totalOutput, totalCached, contextWindow, lastTurnTokens, ts }
+
+  function applyMetaEvents(sessionId, metaEvents) {
+    for (const e of metaEvents) {
+      if (e.label === 'cwd' && e.path) index.upsert(sessionId, { cwd: e.path });
+      else if (e.label === 'model' && e.model) index.upsert(sessionId, { model: e.model });
+    }
+  }
+
+  // Track cumulative token totals from adapters that embed them in tokens events
+  // (codex-cli today). Feeds status synthesis and the usage-store bridge.
+  function trackTokens(sessionId, events) {
+    for (const e of events) {
+      if (e.kind !== 'tokens' || typeof e.change?.totalInput !== 'number') continue;
+      const prev = tokenStats.get(sessionId);
+      tokenStats.set(sessionId, {
+        totalInput: e.change.totalInput,
+        totalOutput: e.change.totalOutput ?? 0,
+        totalCached: e.change.totalCached ?? 0,
+        contextWindow: e.change.contextWindow ?? prev?.contextWindow ?? null,
+        lastTurnTokens: e.change.lastTurnTokens ?? prev?.lastTurnTokens ?? null,
+        ts: e.ts ?? prev?.ts ?? null,
+      });
+    }
+  }
+
+  function ctxPctOf(tk) {
+    return tk?.contextWindow > 0 && tk?.lastTurnTokens > 0
+      ? Math.min(100, Math.max(0, Math.round(100 * tk.lastTurnTokens / tk.contextWindow)))
+      : null;
+  }
 
   function pushEvents(sessionId, events) {
     if (!events.length) return;
     // Handle meta events (e.g. kind:'meta' label:'cwd'): upsert index, never log or stream.
     const metaEvents = events.filter(e => e.kind === 'meta');
     const logEvents = events.filter(e => e.kind !== 'meta');
-    for (const e of metaEvents) {
-      if (e.label === 'cwd' && e.path) index.upsert(sessionId, { cwd: e.path });
-    }
+    applyMetaEvents(sessionId, metaEvents);
     if (!logEvents.length) return;
+    trackTokens(sessionId, logEvents);
+    // Bridge cumulative token events into the usage store (Analytics). Only
+    // adapters that embed cumulative totals emit these (codex-cli); tap-backed
+    // tools (Claude Code) never do, so there is no double counting.
+    for (const e of logEvents) {
+      if (e.kind !== 'tokens' || typeof e.change?.totalInput !== 'number') continue;
+      const rec = index.get(sessionId) ?? {};
+      const tk = tokenStats.get(sessionId);
+      const parsed = typeof e.ts === 'string' ? Date.parse(e.ts) : (typeof e.ts === 'number' ? e.ts : NaN);
+      const capturedAt = Number.isFinite(parsed) ? parsed : Date.now();
+      try {
+        appendSnapshot(P.stateDir, {
+          sid: sessionId, ts: capturedAt, capturedAt,
+          model: rec.model ?? null, costUsd: null,
+          input: e.change.totalInput, output: e.change.totalOutput ?? null,
+          cacheRead: e.change.totalCached ?? null, cacheCreate: null,
+          ctxUsedPct: ctxPctOf(tk), cwd: rec.cwd ?? null,
+        });
+      } catch {}
+    }
     const log = eventLog.get(sessionId) ?? [];
     log.push(...logEvents);
     if (log.length > 2000) log.splice(0, log.length - 2000);
@@ -233,6 +285,10 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       const start = Math.max(0, size - cfg.backfillBytes);
       const r = readNewLines(file, start, '', { discardFirstPartial: start > 0 });
       events = r.lines.flatMap(l => extractor(l, sessionId));
+      // Meta events carry session facts (cwd/model), not feed entries: upsert + strip.
+      applyMetaEvents(sessionId, events.filter(e => e.kind === 'meta'));
+      events = events.filter(e => e.kind !== 'meta');
+      trackTokens(sessionId, events);
     }
 
     // Fallback for empty/missing log files: load from history.jsonl and messages folder
@@ -439,7 +495,7 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           }
         } else if (desc.kind === 'jsonl-tail' && typeof adapter.extractLine === 'function') {
           const tailKey = `${desc.tool}:${desc.id}`;
-          index.upsert(desc.id, { tool: desc.tool, cwd: desc.cwd ?? null, lastTs: desc.mtimeMs });
+          index.upsert(desc.id, { tool: desc.tool, cwd: desc.cwd ?? index.get(desc.id)?.cwd ?? null, lastTs: desc.mtimeMs });
           replayIfEmpty(desc.id, desc.file, adapter.extractLine);
           tailOne(tailKey, desc.file, adapter.extractLine, desc.id);
           if (!sessionIds.has(desc.id)) {
@@ -455,7 +511,7 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           const drain = (from, sink) => {
             let cursor = from, title = null, guard = 0;
             for (;;) {
-              const ex = adapter.extractSteps(desc.file, cursor);
+              const ex = adapter.extractSteps(desc.file, cursor, desc);
               if (ex.title && !title) title = ex.title;
               if (ex.events.length) sink(ex.events);
               if (ex.lastIdx <= cursor || ++guard > 100) break; // no progress / safety cap (~50k steps)
@@ -477,7 +533,7 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
             const r = drain(prev.lastIdx, evs => pushEvents(desc.id, evs));
             if (r.title && !index.get(desc.id)?.title) index.upsert(desc.id, { title: r.title });
             offsets[sqlKey] = { lastIdx: r.lastIdx, mtime: desc.mtimeMs };
-            index.upsert(desc.id, { tool: desc.tool, cwd: desc.cwd ?? null, lastTs: desc.mtimeMs });
+            index.upsert(desc.id, { tool: desc.tool, cwd: desc.cwd ?? index.get(desc.id)?.cwd ?? null, lastTs: desc.mtimeMs });
           }
 
           if (!sessionIds.has(desc.id)) {
@@ -569,6 +625,19 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           sessionName: null,
           capturedAt: now,
         };
+      }
+      // Generic synthesis for tapless tools (codex-cli, future gemini-cli):
+      // model captured via meta events, context % from cumulative token events.
+      if (!status) {
+        const tk = tokenStats.get(s.id);
+        if (rec.model || tk) {
+          status = {
+            model: { id: rec.model ?? null, displayName: rec.model ? rec.model.replace(/^gpt-/, 'GPT-') : null },
+            context: { usedPercent: ctxPctOf(tk) },
+            cost: { totalUsd: null },
+            rateLimits: null, sessionName: null, capturedAt: tk?.ts ?? null,
+          };
+        }
       }
       const events = eventLog.get(s.id) ?? [];
       const ctxNow = contextNow(events);
