@@ -1,0 +1,546 @@
+/* === learning loop === */
+
+/* ── Learning view root ──────────────────────────── */
+.lrn-root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* ── Header bar ──────────────────────────────────── */
+.lrn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--sp-3) var(--sp-4);
+  flex-shrink: 0;
+}
+
+.lrn-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.lrn-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: 0.01em;
+}
+
+/* Pending count badge — amber pill, mirrors .rail-gap-badge tone */
+.lrn-pending-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(224,162,58,.15);
+  border: 1px solid rgba(224,162,58,.4);
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1;
+}
+
+.lrn-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* ── Toggle switch ───────────────────────────────── */
+.lrn-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Hide native checkbox visually but keep it accessible */
+.lrn-toggle-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.lrn-toggle-track {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--muted);
+  border: 1px solid var(--border);
+  transition: background 0.18s, border-color 0.18s;
+  flex-shrink: 0;
+}
+
+.lrn-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--muted-fg);
+  transition: transform 0.18s, background 0.18s;
+}
+
+.lrn-toggle-input:checked + .lrn-toggle-track {
+  background: rgba(63,184,127,.18);
+  border-color: rgba(63,184,127,.45);
+}
+.lrn-toggle-input:checked + .lrn-toggle-track .lrn-toggle-thumb {
+  transform: translateX(14px);
+  background: var(--green);
+}
+
+.lrn-toggle-text {
+  font-size: 12px;
+  color: var(--muted-fg);
+}
+
+/* ── Idea input row ──────────────────────────────── */
+.lrn-idea-row {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.lrn-idea-input {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 4px var(--sp-2);
+  width: 220px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.lrn-idea-input::placeholder { color: var(--muted-fg); opacity: 0.7; }
+.lrn-idea-input:focus { border-color: var(--info); }
+
+/* ── Sections ────────────────────────────────────── */
+.lrn-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* Section heading — mirrors .panel-title: uppercase muted + gold left-border */
+.lrn-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-left: 8px;
+  border-left: 2px solid var(--gold);
+  flex-shrink: 0;
+}
+
+.lrn-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted-fg);
+}
+
+.lrn-section-count {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted-fg);
+  opacity: 0.65;
+}
+
+/* Discarded section — collapsible <details> */
+.lrn-section-discarded {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lrn-discarded-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: var(--sp-1) 0;
+  user-select: none;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+.lrn-discarded-summary::-webkit-details-marker { display: none; }
+.lrn-discarded-summary:hover { opacity: 0.8; }
+details[open] .lrn-discarded-summary { opacity: 0.7; }
+
+/* When used inside summary, head is inline flex without extra margin */
+.lrn-section-head-inline {
+  display: inline-flex;
+}
+.lrn-section-head-inline::before {
+  content: '\25B8 ';
+  font-size: 9px;
+  color: var(--muted-fg);
+  margin-right: 4px;
+  align-self: center;
+}
+details[open] .lrn-section-head-inline::before { content: '\25BE '; }
+
+.lrn-discarded-list {
+  margin-top: var(--sp-1);
+  opacity: 0.45;
+}
+
+/* ── Card list ───────────────────────────────────── */
+.lrn-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* ── Item cards ──────────────────────────────────── */
+/* Base card — mirrors .an-panel: dark card, rounded, bordered */
+.lrn-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  animation: lrn-card-in 0.2s ease-out;
+}
+
+@keyframes lrn-card-in {
+  from { opacity: 0; transform: translateY(-2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Pending cards — amber left-accent, echoing .gap-callout */
+.lrn-card-pending {
+  border-left: 3px solid rgba(224,162,58,.5);
+}
+
+/* Applied cards — green left-accent, dimmed body */
+.lrn-card-applied {
+  border-left: 3px solid rgba(63,184,127,.4);
+  opacity: 0.75;
+}
+
+/* Discarded — fully muted */
+.lrn-card-discarded {
+  border-left: 3px solid var(--border);
+  opacity: 0.5;
+}
+
+/* ── Card top row ────────────────────────────────── */
+.lrn-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.lrn-card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Recurrence badge — gold mono pill */
+.lrn-recurrence-badge {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+  color: var(--gold);
+  background: rgba(212,164,55,.10);
+  border: 1px solid rgba(212,164,55,.3);
+  border-radius: 999px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Dispatched / failed status note */
+.lrn-status-note {
+  font-size: 10px;
+  color: var(--muted-fg);
+  font-style: italic;
+  flex-shrink: 0;
+}
+
+/* ── Chips — source/severity ─────────────────────── */
+/* Base inherits .chip from styles.css */
+.lrn-chip {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* gap warn → amber (echoes .gap-callout / .tool-chip-amber) */
+.lrn-chip-warn {
+  color: var(--amber);
+  background: rgba(224,162,58,.10);
+  border-color: rgba(224,162,58,.4);
+}
+
+/* gap info → muted */
+.lrn-chip-info {
+  color: var(--muted-fg);
+  background: rgba(138,146,156,.08);
+  border-color: rgba(138,146,156,.25);
+}
+
+/* idea → accent/purple */
+.lrn-chip-idea {
+  color: var(--purple);
+  background: rgba(168,120,216,.10);
+  border-color: rgba(168,120,216,.4);
+}
+
+/* ── Card body ───────────────────────────────────── */
+.lrn-card-body {
+  font-size: 12px;
+  color: var(--fg);
+  opacity: 0.85;
+  line-height: 1.5;
+  padding-left: var(--sp-1);
+}
+
+/* ── Card meta ───────────────────────────────────── */
+.lrn-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.lrn-card-project {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted-fg);
+  background: rgba(138,146,156,.08);
+  border: 1px solid rgba(138,146,156,.18);
+  border-radius: 4px;
+  padding: 1px 5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Failed error message */
+.lrn-card-error {
+  font-size: 11px;
+  color: var(--red);
+  background: rgba(224,86,86,.07);
+  border: 1px solid rgba(224,86,86,.25);
+  border-radius: 5px;
+  padding: var(--sp-1) var(--sp-2);
+}
+
+/* ── Proposed guard preview ──────────────────────── */
+.lrn-guard-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lrn-guard-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted-fg);
+  opacity: 0.65;
+}
+
+.lrn-guard-rule {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--fg);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: var(--sp-1) var(--sp-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.9;
+}
+
+/* ── Alternative editor section ─────────────────── */
+.lrn-alt-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-2);
+}
+
+.lrn-alt-hidden {
+  display: none;
+}
+
+.lrn-alt-textarea {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: var(--sp-1) var(--sp-2);
+  resize: vertical;
+  outline: none;
+  width: 100%;
+  min-height: 56px;
+  transition: border-color 0.15s;
+}
+.lrn-alt-textarea:focus { border-color: var(--info); }
+
+.lrn-alt-save-row {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+/* ── Action buttons ──────────────────────────────── */
+.lrn-card-actions {
+  display: flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border);
+  padding-top: var(--sp-2);
+}
+
+/* Base button — mirrors .hist-action-btn */
+.lrn-btn {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--fg);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.lrn-btn:hover { background: #2a3038; }
+
+/* Approve → green */
+.lrn-btn-approve {
+  color: var(--green);
+  background: rgba(63,184,127,.10);
+  border-color: rgba(63,184,127,.35);
+}
+.lrn-btn-approve:hover { background: rgba(63,184,127,.2); border-color: rgba(63,184,127,.55); }
+
+/* Discard → destructive/red */
+.lrn-btn-discard {
+  color: var(--red);
+  background: rgba(224,86,86,.08);
+  border-color: rgba(224,86,86,.25);
+}
+.lrn-btn-discard:hover { background: rgba(224,86,86,.16); border-color: rgba(224,86,86,.45); }
+
+/* Alternative — muted, with active state */
+.lrn-btn-alt { color: var(--muted-fg); }
+.lrn-btn-alt.lrn-btn-active {
+  color: var(--info);
+  background: rgba(74,140,216,.10);
+  border-color: rgba(74,140,216,.35);
+}
+
+/* Idea add button — info/blue */
+.lrn-btn-idea {
+  color: var(--blue);
+  background: rgba(74,140,216,.10);
+  border-color: rgba(74,140,216,.3);
+  padding: 4px var(--sp-2);
+  font-size: 12px;
+}
+.lrn-btn-idea:hover { background: rgba(74,140,216,.18); border-color: rgba(74,140,216,.5); }
+
+/* Save alternative button — primary/gold */
+.lrn-btn-save {
+  color: var(--gold);
+  background: rgba(212,164,55,.10);
+  border-color: rgba(212,164,55,.35);
+}
+.lrn-btn-save:hover { background: rgba(212,164,55,.18); border-color: rgba(212,164,55,.55); }
+
+/* Cancel button — muted */
+.lrn-btn-cancel { color: var(--muted-fg); }
+
+/* ── Applied commit sha ───────────────────────────── */
+.lrn-commit-sha {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--green);
+  background: rgba(63,184,127,.08);
+  border: 1px solid rgba(63,184,127,.2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+
+/* ── Empty state ─────────────────────────────────── */
+.lrn-empty {
+  font-size: 12px;
+  color: var(--muted-fg);
+  font-style: italic;
+  padding: var(--sp-2) var(--sp-1);
+}
+
+/* Actionable per-session gap callout (Approve/Discard rendered by detail.js) */
+.gap-line { display: flex; align-items: center; gap: var(--sp-2); }
+.gap-msg { flex: 1 1 auto; }
+.gap-actions { display: inline-flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+.gap-act {
+  font: inherit; font-size: 11px; line-height: 1.4;
+  padding: 2px 9px; border-radius: 5px;
+  border: 1px solid var(--border); background: var(--muted); color: var(--fg);
+  cursor: pointer;
+}
+.gap-act:hover:not(:disabled) { border-color: var(--muted-fg); }
+.gap-act:disabled { opacity: 0.5; cursor: default; }
+.gap-act-approve { color: var(--green); }
+.gap-act-discard { color: var(--muted-fg); }
+.gap-state {
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 1px 7px; border-radius: 4px; background: var(--muted);
+}
+.gap-state-applied { color: var(--green); }
+.gap-state-discarded { color: var(--muted-fg); }
+.gap-state-dispatched { color: var(--amber); }
+.gap-state-failed { color: var(--red); }
+
+/* === end learning loop === */

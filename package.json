@@ -1,0 +1,14 @@
+{
+  "name": "glmps",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local dashboard showing live, per-session what every Claude Code / CLI agent session is doing: skills, agents, memory, CLAUDE.md, git, file edits.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server/server.js",
+    "setup": "node scripts/install.mjs",
+    "test": "node --test"
+  }
+}

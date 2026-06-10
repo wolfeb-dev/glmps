@@ -1,0 +1,17 @@
+{
+  "port": 8123,
+  "antigravityCommand": null,
+  "openInEditorArgs": ["-g", "{path}"],
+  "editableRoots": [],
+  "workingThresholdMs": 10000,
+  "idleThresholdMs": 60000,
+  "inventoryScanMs": 60000,
+  "searchResultCap": 200,
+  "backfillBytes": 2097152,
+  "terminals": [
+    { "label": "Claude", "command": "claude", "icon": "claude" },
+    { "label": "Gemini", "command": "gemini", "icon": "gemini" },
+    { "label": "Codex", "command": "codex", "icon": "codex" },
+    { "label": "Blank", "command": "", "icon": "terminal" }
+  ]
+}

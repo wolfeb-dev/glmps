@@ -1,0 +1,25 @@
+node_modules/
+companion/dist/
+companion/*.vsix
+.superpowers/
+
+# Local runtime config (copy config.example.json -> config.json and edit)
+config.json
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Env files
+.env
+.env.*
+
+# Statusline tap backups created by the installer
+*.mc-backup
+
+# Local scratch that carries sample/personal data — never publish
+mockups/
+_shot.png

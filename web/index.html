@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta charset="utf-8"><title>GLMPS</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="learning.css">
+</head><body>
+  <header id="topbar">
+    <span class="brand">
+      <img class="brand-mark" src="glmps-mark.svg" alt="" width="24" height="24">
+      <span class="brand-text">GLMPS</span>
+    </span>
+    <nav><button data-view="grid" class="active">Live</button>
+         <button data-view="history">History</button>
+         <button data-view="analytics">Analytics</button>
+         <button data-view="learning">Learning</button></nav>
+    <span id="topstats"></span>
+  </header>
+  <main>
+    <section id="view-grid" class="view">
+      <div id="rail"></div>
+      <div id="detail-main"></div>
+    </section>
+    <section id="view-detail" class="view hidden"></section>
+    <section id="view-history" class="view hidden"></section>
+    <section id="view-analytics" class="view hidden"></section>
+    <section id="view-learning" class="view hidden"></section>
+  </main>
+  <div id="tools-strip"></div>
+  <div id="editor-pane" class="hidden"></div>
+  <div id="toast" class="hidden"></div>
+  <script type="module" src="app.js"></script>
+</body></html>
