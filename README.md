@@ -45,10 +45,6 @@ The live dashboard is the glimpse; the **Learning loop** is how you act on it. G
 
 Agents quietly underuse their own capabilities - they skip the skill, forget the subagent, ignore the hook - and you rarely notice. GLMPS is built to catch exactly that, and to make the fix stick.
 
-<p align="center">
-  <img src="docs/screenshots/dashboard_learning.png" alt="GLMPS Learning View" width="100%">
-</p>
-
 The loop is three steps: **watch** what every session does, **catch** the gaps where a capability should have been used, and **guard** so the gap does not recur. The Learning view is where catches become guards, fed by two sources:
 
 - **Auto-detected gaps** from `gap-detect.js` (for example, "edited UI files without the frontend-design skill" or "many edits with no subagent delegation").
