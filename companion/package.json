@@ -2,8 +2,9 @@
   "name": "glmps-companion",
   "displayName": "GLMPS Companion",
   "description": "Auto-starts the GLMPS dashboard server and executes resume requests in Antigravity terminals.",
-  "publisher": "your-publisher-id",
-  "version": "0.1.0",
+  "publisher": "glmps",
+  "version": "0.1.1",
+  "icon": "media/icon.png",
   "license": "UNLICENSED",
   "repository": { "type": "git", "url": "https://localhost/glmps" },
   "engines": { "vscode": "^1.90.0" },
@@ -14,7 +15,7 @@
     "commands": [{ "command": "missionControl.open", "title": "GLMPS: Open Dashboard" }],
     "configuration": { "title": "GLMPS", "properties": {
       "missionControl.autoStart": { "type": "boolean", "default": true, "description": "Start the GLMPS server when Antigravity starts" },
-      "missionControl.serverPath": { "type": "string", "default": "", "description": "Absolute path to server/server.js in your glmps checkout" },
+      "missionControl.serverPath": { "type": "string", "default": "", "description": "Absolute path to server/server.js in your GLMPS checkout" },
       "missionControl.port": { "type": "number", "default": 8123 }
     }}
   },

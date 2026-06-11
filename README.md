@@ -2,26 +2,32 @@
   <img src="web/glmps-wordmark.svg" alt="GLMPS — Watch your agents. Catch the misses." width="760">
 </p>
 
-A local, zero-dependency dashboard that shows, live and per session, what every Claude Code and CLI-agent session on your machine is actually doing: which CLAUDE.md files, skills, subagents, memory, and MCP tools it is using, plus its git activity, file edits, model, context window, and cost. It tails your agents' own session logs, classifies the events, and serves a single-page dashboard with history, full-text search, in-dashboard editing, analytics, and one-click resume.
+GLMPS gives you a glimpse into what your AI agents are doing and how they are learning to work, so you can monitor and control them better.
 
-It is also a lab for catching your own capability misuse: when an agent fails to reach for the right skill, subagent, or hook, GLMPS surfaces that gap and, through the built-in Learning loop, lets you turn the lesson into a durable behavioral guard.
+It watches every Claude Code and CLI-agent session on your machine, catches the moments your agent should have used a skill, subagent, or hook and didn't, and helps you turn each miss into a durable guard.
+
+The live dashboard is the glimpse; the **Learning loop** is how you act on it. GLMPS reads your agents' own session logs to classify what each one uses and flag capability gaps - never instrumenting or proxying them.
 
 - Runs entirely on localhost (binds `127.0.0.1` only). Nothing leaves your machine.
 - Node 18+, no runtime dependencies, no build step for the dashboard.
 - MIT licensed.
 
+<p align="center">
+  <img src="docs/screenshots/dashboard_live.png" alt="GLMPS Live View" width="100%">
+</p>
+
 ---
 
 ## Table of contents
 
-- [What it tracks](#what-it-tracks)
+- [The Learning loop](#the-learning-loop)
+- [What it watches](#what-it-watches)
+- [The dashboard](#the-dashboard)
 - [Supported tools](#supported-tools)
 - [Requirements](#requirements)
 - [Quick start](#quick-start)
 - [Setup (one command)](#setup-one-command)
 - [Configuration](#configuration)
-- [The dashboard](#the-dashboard)
-- [The Learning loop](#the-learning-loop)
 - [Architecture](#architecture)
 - [Project layout](#project-layout)
 - [Antigravity companion](#antigravity-companion)
@@ -31,9 +37,31 @@ It is also a lab for catching your own capability misuse: when an agent fails to
 
 ---
 
-## What it tracks
+## The Learning loop
 
-Per live session and across history, GLMPS surfaces:
+Agents quietly underuse their own capabilities - they skip the skill, forget the subagent, ignore the hook - and you rarely notice. GLMPS is built to catch exactly that, and to make the fix stick.
+
+<p align="center">
+  <img src="docs/screenshots/dashboard_learning.png" alt="GLMPS Learning View" width="100%">
+</p>
+
+The loop is three steps: **watch** what every session does, **catch** the gaps where a capability should have been used, and **guard** so the gap does not recur. The Learning view is where catches become guards, fed by two sources:
+
+- **Auto-detected gaps** from `gap-detect.js` (for example, "edited UI files without the frontend-design skill" or "many edits with no subagent delegation").
+- **Manual ideas** you type in ("always run lint before committing").
+
+Each item can be **approved**, **discarded**, or given an **alternative** rule. Approving writes a durable guard into your private agent config as a single, revertable git commit:
+
+- Known gap codes apply a deterministic, templated guard.
+- Free-form ideas are handed to a headless agent that composes the rule (driven through the Antigravity companion's request queue).
+
+A manual/automated toggle lets the safe, deterministic gap guards apply on their own, while free-form ideas always wait for your approval. Because every apply is one git commit, any learning is trivially reverted.
+
+That is the whole point: a miss the dashboard catches today becomes a guard that prevents it tomorrow.
+
+## What it watches
+
+To catch gaps, GLMPS first has to see what each session actually does. Per live session and across history, it surfaces:
 
 - **Guiding context** - the CLAUDE.md / GEMINI.md / AGENTS.md files and project memory steering the session.
 - **Skills** - which skills were invoked, and which available skills went unused.
@@ -46,6 +74,27 @@ Per live session and across history, GLMPS surfaces:
 - **Capability gaps** - high-confidence cases where a skill or subagent should likely have been used but was not.
 
 Everything is derived by tailing the agents' own on-disk session logs. GLMPS never instruments or proxies your agents.
+
+## The dashboard
+
+The top bar has four views. The Live console is shown at the top of this README; the Learning queue is covered in [The Learning loop](#the-learning-loop).
+
+- **Live** - a master/detail console. The left rail lists live and recent sessions (tool-colored, with context %, skill/memory/agent/git counts); selecting one expands its banner (title, model, guiding context, capability gaps) and its live event feed, streamed over Server-Sent Events.
+- **History** - every recorded session, filterable by project, tool, date, and skill, with full-text search across transcripts and one-click resume.
+
+  <p align="center">
+    <img src="docs/screenshots/dashboard_history.png" alt="GLMPS History View" width="100%">
+  </p>
+
+- **Analytics** - usage over time: cost and token trends, an activity heatmap, and per-model and per-project breakdowns. Hand-built charts, no charting library.
+
+  <p align="center">
+    <img src="docs/screenshots/dashboard_analytics.png" alt="GLMPS Analytics View" width="100%">
+  </p>
+
+- **Learning** - the capability-gap and idea queue described [above](#the-learning-loop).
+
+Other built-ins: copy-to-prompt for unused inventory, in-dashboard editing of context files (with undo), a "New terminal" launcher that opens a chosen CLI as an Antigravity editor tab, resume-into-Antigravity, and a settings menu to restart the server and open `config.json`.
 
 ## Supported tools
 
@@ -98,7 +147,7 @@ This wires GLMPS into your Claude Code config with resolved absolute paths, and 
 
 1. **config.json** - copies `config.example.json` to `config.json` if you do not have one yet.
 2. **Statusline tap** - chains a recorder into `~/.claude/settings.json` that captures each session's model, context window, and cost, then delegates to your previous statusline command (any existing statusline keeps working). Your `settings.json` is backed up to `settings.json.mc-backup` first.
-3. **Capability-reminder hook** - installs a `UserPromptSubmit` hook that nudges you toward the right skill/subagent before acting.
+3. **Capability-reminder hook** - installs a `UserPromptSubmit` hook that nudges you toward the right skill/subagent before acting. It is the front line of the Learning loop: catch the miss before it happens.
 
 It is idempotent (safe to run twice). To revert everything it installed:
 
@@ -124,50 +173,6 @@ Copy `config.example.json` to `config.json` (the installer does this for you) an
 | `searchResultCap` | `200` | Max full-text search hits returned. |
 | `backfillBytes` | `2097152` | How much of a transcript tail to backfill on first read. |
 | `terminals` | Claude / Gemini / Codex / Blank | CLI choices offered by the "New terminal" launcher. |
-
-## The dashboard
-
-The top bar has four views:
-
-- **Live** - a master/detail console. The left rail lists live and recent sessions (tool-colored, with context %, skill/memory/agent/git counts); selecting one expands its banner (title, model, guiding context, capability gaps) and its live event feed, streamed over Server-Sent Events.
-
-  <p align="center">
-    <img src="docs/screenshots/dashboard_live.png" alt="GLMPS Live View" width="100%">
-  </p>
-
-- **History** - every recorded session, filterable by project, tool, date, and skill, with full-text search across transcripts and one-click resume.
-
-  <p align="center">
-    <img src="docs/screenshots/dashboard_history.png" alt="GLMPS History View" width="100%">
-  </p>
-
-- **Analytics** - usage over time: cost and token trends, an activity heatmap, and per-model and per-project breakdowns. Hand-built charts, no charting library.
-
-  <p align="center">
-    <img src="docs/screenshots/dashboard_analytics.png" alt="GLMPS Analytics View" width="100%">
-  </p>
-
-- **Learning** - the capability-gap and idea queue (see below).
-
-  <p align="center">
-    <img src="docs/screenshots/dashboard_learning.png" alt="GLMPS Learning View" width="100%">
-  </p>
-
-Other built-ins: copy-to-prompt for unused inventory, in-dashboard editing of context files (with undo), a "New terminal" launcher that opens a chosen CLI as an Antigravity editor tab, resume-into-Antigravity, and a settings menu to restart the server and open `config.json`.
-
-## The Learning loop
-
-GLMPS does not just show capability gaps - it helps you fix them. The Learning view is a queue fed by two sources:
-
-- **Auto-detected gaps** from `gap-detect.js` (for example, "edited UI files without the frontend-design skill" or "many edits with no subagent delegation").
-- **Manual ideas** you type in ("always run lint before committing").
-
-Each item can be **approved**, **discarded**, or given an **alternative** rule. Approving writes a durable guard into your private agent config as a single, revertable git commit:
-
-- Known gap codes apply a deterministic, templated guard.
-- Free-form ideas are handed to a headless agent that composes the rule (driven through the Antigravity companion's request queue).
-
-A manual/automated toggle lets the safe, deterministic gap guards apply on their own, while free-form ideas always wait for your approval. Because every apply is one git commit, any learning is trivially reverted. This closes the loop: a miss the dashboard catches today becomes a guard that prevents it tomorrow.
 
 ## Architecture
 
