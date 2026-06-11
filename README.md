@@ -2,19 +2,23 @@
   <img src="web/glmps-wordmark.svg" alt="GLMPS — Watch your agents. Catch the misses." width="760">
 </p>
 
-GLMPS gives you a glimpse into what your AI agents are doing and how they are learning to work, so you can monitor and control them better.
+GLMPS provides real-time visibility and execution analysis for autonomous agent workflows, enabling developers to monitor agent behavior, validate actions, and align guardrails.
+
+<p align="center">
+  <img src="docs/screenshots/dashboard_live.png" alt="GLMPS Live View" width="100%">
+</p>
 
 It watches every Claude Code and CLI-agent session on your machine, catches the moments your agent should have used a skill, subagent, or hook and didn't, and helps you turn each miss into a durable guard.
 
 The live dashboard is the glimpse; the **Learning loop** is how you act on it. GLMPS reads your agents' own session logs to classify what each one uses and flag capability gaps - never instrumenting or proxying them.
 
+<p align="center">
+  <img src="docs/screenshots/dashboard_learning.png" alt="GLMPS Learning View" width="100%">
+</p>
+
 - Runs entirely on localhost (binds `127.0.0.1` only). Nothing leaves your machine.
 - Node 18+, no runtime dependencies, no build step for the dashboard.
 - MIT licensed.
-
-<p align="center">
-  <img src="docs/screenshots/dashboard_live.png" alt="GLMPS Live View" width="100%">
-</p>
 
 ---
 
