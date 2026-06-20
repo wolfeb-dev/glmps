@@ -2,6 +2,7 @@
 // Analytics view — consumes GET /api/usage and renders hand-rolled charts
 // (CSS bars + inline SVG donut). ALL DOM via createElement/createElementNS + textContent.
 // No charting library, no innerHTML with data (only innerHTML='' to clear).
+// Usage panel (from budget.js) is rendered at the top of this view.
 
 import {
   groupByModel,
@@ -10,6 +11,8 @@ import {
   heatBuckets,
   maxOf,
 } from './analytics-calc.js';
+
+import { renderUsage } from './budget.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -314,21 +317,35 @@ export async function renderAnalytics(container) {
   const loading = el('div', 'an-empty', 'Loading analytics…');
   container.appendChild(loading);
 
-  let usage;
-  try {
-    usage = await fetchUsage();
-  } catch {
-    container.innerHTML = '';
-    container.appendChild(el('div', 'an-empty', 'Failed to load usage data.'));
+  // Fetch budget and analytics data in parallel
+  let budgetData, analyticsData;
+  [budgetData, analyticsData] = await Promise.allSettled([
+    fetch('/api/budget').then(r => r.json()),
+    fetchUsage(),
+  ]).then(([b, a]) => [
+    b.status === 'fulfilled' ? b.value : null,
+    a.status === 'fulfilled' ? a.value : null,
+  ]);
+
+  container.innerHTML = '';
+
+  const root = el('div', 'an-root');
+
+  // 0) Usage panel — top of Analytics
+  const usageSection = el('div');
+  root.appendChild(usageSection);
+  renderUsage(usageSection, budgetData ?? { available: false });
+
+  if (!analyticsData) {
+    root.appendChild(el('div', 'an-empty', 'Failed to load usage data.'));
+    container.appendChild(root);
     return;
   }
 
-  const daily = usage?.daily ?? [];
-  const heatmap = usage?.heatmap ?? [];
-  const perSession = usage?.perSession ?? [];
-  const totals = usage?.totals ?? {};
-
-  const root = el('div', 'an-root');
+  const daily = analyticsData?.daily ?? [];
+  const heatmap = analyticsData?.heatmap ?? [];
+  const perSession = analyticsData?.perSession ?? [];
+  const totals = analyticsData?.totals ?? {};
 
   // 1) Totals strip
   root.appendChild(buildTotals(totals, daily));
@@ -348,6 +365,5 @@ export async function renderAnalytics(container) {
   bottomRow.appendChild(buildRanked('By model', groupByModel(perSession), { barClass: 'an-rank-fill-gold', limit: 8 }));
   root.appendChild(bottomRow);
 
-  container.innerHTML = '';
   container.appendChild(root);
 }

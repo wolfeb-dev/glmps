@@ -363,19 +363,29 @@ function buildGapCallout(gaps) {
           const discard = document.createElement('button');
           discard.className = 'gap-act gap-act-discard';
           setText(discard, 'Discard');
-          const run = async (act) => {
-            approve.disabled = true; discard.disabled = true;
+          // Promote → global: lift a capability guard into global CLAUDE.md so every
+          // agent sees it (the deterministic default; memory promotion lives on the
+          // full Learning card). Disables siblings while in flight.
+          const promote = document.createElement('button');
+          promote.className = 'gap-act gap-act-promote';
+          setText(promote, 'Promote');
+          const setDisabled = (v) => { approve.disabled = v; discard.disabled = v; promote.disabled = v; };
+          const run = async (act, target) => {
+            setDisabled(true);
             try {
-              const item = await learningAction(g.id, act);
-              renderState(item && item.status ? item.status : (act === 'approve' ? 'applied' : 'discarded'));
+              const item = await learningAction(g.id, act, target);
+              renderState(item && item.status ? item.status
+                : (act === 'discard' ? 'discarded' : act === 'promote' && target === 'memory' ? 'dispatched' : 'applied'));
             } catch {
-              approve.disabled = false; discard.disabled = false;
+              setDisabled(false);
             }
           };
           approve.addEventListener('click', () => run('approve'));
           discard.addEventListener('click', () => run('discard'));
+          promote.addEventListener('click', () => run('promote', 'global'));
           actions.appendChild(approve);
           actions.appendChild(discard);
+          actions.appendChild(promote);
         } else {
           const tag = document.createElement('span');
           tag.className = 'gap-state gap-state-' + status;
@@ -437,6 +447,8 @@ function buildGuidingBar(guidingFiles, events, handlers, skillsUsed) {
         scopeClass = 'scope-global'; scopeLabel = 'global';
       } else if (gf.scope === 'memory') {
         scopeClass = 'scope-memory'; scopeLabel = 'memory';
+      } else if (gf.scope === 'acceptance') {
+        scopeClass = 'scope-acceptance'; scopeLabel = 'done';
       } else {
         scopeClass = 'scope-project'; scopeLabel = 'project';
       }

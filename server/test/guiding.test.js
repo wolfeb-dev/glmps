@@ -182,3 +182,17 @@ test('computeGuiding: projectMemoryDir=null → no memory entry added', () => {
   assert.equal(result.length, 1);
   assert.equal(result[0].scope, 'global');
 });
+
+test('computeGuiding: acceptance.md in cwd -> scope:acceptance', () => {
+  const tmp = mkTmp();
+  const claudeDir = path.join(tmp, 'noclaude');
+  const cwd = path.join(tmp, 'proj');
+  fs.mkdirSync(cwd, { recursive: true });
+  fs.writeFileSync(path.join(cwd, 'acceptance.md'), '---\ncommands:\n  - npm test\n---\n');
+
+  const result = computeGuiding(cwd, claudeDir);
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].name, 'acceptance.md');
+  assert.equal(result[0].scope, 'acceptance');
+});

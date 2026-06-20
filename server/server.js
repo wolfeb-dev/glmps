@@ -20,10 +20,12 @@ import { adapters, detectAll } from './lib/adapters/index.js';
 import { computeGuiding } from './lib/guiding.js';
 import { annotateUnused } from './lib/asset-scope.js';
 import { detectGaps } from './lib/gap-detect.js';
+import { doneGateEvents } from './lib/done-gate-feed.js';
 import * as learningStore from './lib/learning-store.js';
-import { applyGuard, enqueueIdeaApply, buildIdeaApplyCommand, ingestResults } from './lib/learning-apply.js';
+import { applyGuard, enqueueIdeaApply, buildIdeaApplyCommand, buildMemoryApplyCommand, ingestResults } from './lib/learning-apply.js';
 import { buildTerminalRequest } from './lib/terminal-request.js';
 import { readUsage, appendSnapshot } from './lib/usage-store.js';
+import { readBudget } from './lib/budget.js';
 import { pickTitle, cleanFirstPrompt } from './lib/session-title.js';
 
 const WEB_DIR = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..', 'web');
@@ -728,7 +730,12 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
             const it = lq.items.find(i => i.id === key);
             return { ...g, id: it ? it.id : null, status: it ? it.status : 'pending' };
           });
-          return send(200, { events: log, contextNow: contextNow(log), usage, guiding, skillsUsed, gaps });
+          // Done-gate results (Stop-hook acceptance gate): merge this session's gate
+          // results into the feed/context as shared-shape events, bound by session id.
+          let dgEvents = [];
+          try { dgEvents = doneGateEvents(fs.readFileSync(path.join(P.doneGateDir, `${sid}.jsonl`), 'utf8'), sid); } catch {}
+          const feedLog = dgEvents.length ? [...log, ...dgEvents].sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0)) : log;
+          return send(200, { events: feedLog, contextNow: contextNow(feedLog), usage, guiding, skillsUsed, gaps });
         }
         const allEvents = [...eventLog.values()].flat();
         const toolDetection = detectAll(P);
@@ -742,6 +749,13 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       }
       if (u.pathname === '/api/usage') {
         return send(200, readUsage(P.stateDir));
+      }
+      if (u.pathname === '/api/budget') {
+        // Usage/quota meter: the real Claude.ai plan utilization (5h / weekly /
+        // weekly-Sonnet) from /api/oauth/usage — the same data the Claude Code
+        // extension shows. Cached ~60s; falls back to claude-manager statusline.json.
+        const b = await readBudget({ credentialsFile: P.credentialsFile, statuslineFile: P.cmStatuslineFile });
+        return send(200, b);
       }
       if (u.pathname === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
@@ -839,7 +853,7 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
         const st = learningStore.setConfigIn(P.stateDir, { autoApplyGaps: !!body.autoApplyGaps });
         return send(200, st.config);
       }
-      const learnMatch = u.pathname.match(/^\/api\/learning\/item\/([^/]+)\/(approve|discard|alternative)$/);
+      const learnMatch = u.pathname.match(/^\/api\/learning\/item\/([^/]+)\/(approve|discard|alternative|promote)$/);
       if (learnMatch && req.method === 'POST') {
         const id = decodeURIComponent(learnMatch[1]);
         const action = learnMatch[2];
@@ -849,6 +863,45 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
         if (!item) return send(404, { error: 'item not found' });
         if (action === 'discard' || action === 'alternative') {
           const r = learningStore.applyAction(st, id, action, { rule: body.rule });
+          learningStore.save(P.stateDir, r.state);
+          return send(200, r.item);
+        }
+        // promote: lift a learning to a broader scope so all agents see it.
+        //  target 'global' (default) -> deterministic guard commit into CLAUDE.global.md.
+        //  target 'memory' -> agent-composed memory file via the headless hand.
+        if (action === 'promote') {
+          if ((body.target ?? 'global') === 'global') {
+            const rule = (item.proposedGuard && item.proposedGuard.rule)
+              || `- ${(item.title || item.body || '').trim()}`;
+            try {
+              const { commit } = applyGuard({ assetsDir: P.assetsDir,
+                file: 'CLAUDE.global.md', section: 'Learned guards',
+                rule, message: `learning: promote ${item.code ?? item.id} to global` });
+              const r = learningStore.markApplied(st, id, commit);
+              learningStore.save(P.stateDir, r.state);
+              return send(200, r.item);
+            } catch (e) {
+              const r = learningStore.markFailed(st, id, e.message);
+              learningStore.save(P.stateDir, r.state);
+              return send(200, r.item);
+            }
+          }
+          // target memory -> agent-composed memory file in the item's project memory dir.
+          const reqDir = path.join(P.stateDir, 'learning', 'requests');
+          const resDir = path.join(P.stateDir, 'learning', 'results');
+          fs.mkdirSync(reqDir, { recursive: true });
+          fs.mkdirSync(resDir, { recursive: true });
+          const requestPath = path.join(reqDir, id + '.json');
+          const resultPath = path.join(resDir, id + '.json');
+          const munged = (item.project || '').replace(/[\\/:]/g, '-');
+          const memoryDir = munged ? path.join(P.projectsDir, munged, 'memory') : path.join(P.projectsDir);
+          fs.writeFileSync(requestPath, JSON.stringify({ id, learning: item.body ?? item.title ?? '',
+            project: item.project ?? null, memoryDir, resultPath }));
+          const command = buildMemoryApplyCommand(id, { requestPath, resultPath, memoryDir });
+          enqueueIdeaApply({ requestsFile: P.requestsFile, command, cwd: P.assetsDir });
+          if (!agAlive && cfg.antigravityCommand)
+            spawn(cfg.antigravityCommand, [], { detached: true, stdio: 'ignore', shell: true, windowsHide: true }).unref();
+          const r = learningStore.markDispatched(st, id);
           learningStore.save(P.stateDir, r.state);
           return send(200, r.item);
         }

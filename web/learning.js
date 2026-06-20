@@ -123,6 +123,25 @@ function buildPendingCard(item, handlers) {
   altSection.appendChild(altSaveRow);
   card.appendChild(altSection);
 
+  // Promote section (hidden by default) — lift this learning to a broader scope so
+  // all agents see it: a deterministic guard in global CLAUDE.md, or an agent-composed
+  // memory note.
+  const promoteSection = el('div', 'lrn-alt-section lrn-alt-hidden');
+  const promoteLabel = el('span', 'lrn-guard-label');
+  setText(promoteLabel, 'promote to');
+  promoteSection.appendChild(promoteLabel);
+  const promoteRow = el('div', 'lrn-alt-save-row');
+  const promoteGlobalBtn = el('button', 'lrn-btn lrn-btn-promote');
+  setText(promoteGlobalBtn, 'Global CLAUDE.md');
+  promoteGlobalBtn.addEventListener('click', () => handlers.onAction(item.id, 'promote', 'global'));
+  const promoteMemoryBtn = el('button', 'lrn-btn lrn-btn-promote');
+  setText(promoteMemoryBtn, 'Memory');
+  promoteMemoryBtn.addEventListener('click', () => handlers.onAction(item.id, 'promote', 'memory'));
+  promoteRow.appendChild(promoteGlobalBtn);
+  promoteRow.appendChild(promoteMemoryBtn);
+  promoteSection.appendChild(promoteRow);
+  card.appendChild(promoteSection);
+
   // Action buttons
   const actions = el('div', 'lrn-card-actions');
 
@@ -144,6 +163,14 @@ function buildPendingCard(item, handlers) {
     if (!hidden) altTextarea.focus();
   });
   actions.appendChild(altToggleBtn);
+
+  var promoteToggleBtn = el('button', 'lrn-btn lrn-btn-promote');
+  setText(promoteToggleBtn, 'Promote');
+  promoteToggleBtn.addEventListener('click', () => {
+    const hidden = promoteSection.classList.toggle('lrn-alt-hidden');
+    promoteToggleBtn.classList.toggle('lrn-btn-active', !hidden);
+  });
+  actions.appendChild(promoteToggleBtn);
 
   card.appendChild(actions);
   return card;

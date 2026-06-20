@@ -497,6 +497,14 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 }
 .lrn-btn-save:hover { background: rgba(212,164,55,.18); border-color: rgba(212,164,55,.55); }
 
+/* Promote — elevate a learning to a broader scope; brand gold, with active state */
+.lrn-btn-promote { color: var(--gold); }
+.lrn-btn-promote:hover,
+.lrn-btn-promote.lrn-btn-active {
+  background: rgba(212,164,55,.12);
+  border-color: rgba(212,164,55,.45);
+}
+
 /* Cancel button — muted */
 .lrn-btn-cancel { color: var(--muted-fg); }
 
@@ -534,6 +542,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 .gap-act:disabled { opacity: 0.5; cursor: default; }
 .gap-act-approve { color: var(--green); }
 .gap-act-discard { color: var(--muted-fg); }
+.gap-act-promote { color: var(--gold); }
 .gap-state {
   font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
   padding: 1px 7px; border-radius: 4px; background: var(--muted);

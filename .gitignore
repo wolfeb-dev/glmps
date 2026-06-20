@@ -23,3 +23,6 @@ Thumbs.db
 # Local scratch that carries sample/personal data — never publish
 mockups/
 _shot.png
+
+# graphify knowledge-graph build artifacts
+graphify-out/

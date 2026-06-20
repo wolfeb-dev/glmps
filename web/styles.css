@@ -108,6 +108,7 @@ body {
 #topbar nav button[data-view="history"].active   { color: var(--info);        background: rgba(74,140,216,.12);  border-color: rgba(74,140,216,.5); }
 #topbar nav button[data-view="analytics"].active { color: var(--warning);     background: rgba(224,162,58,.12);  border-color: rgba(224,162,58,.5); }
 #topbar nav button[data-view="learning"].active  { color: var(--accent);      background: rgba(168,120,216,.12); border-color: rgba(168,120,216,.5); }
+#topbar nav button[data-view="budget"].active    { color: var(--warning);     background: rgba(224,162,58,.12);  border-color: rgba(224,162,58,.5); }
 
 /* Topstats: cost gold, rate-limit amber, live count fg — all mono */
 #topstats {
@@ -397,6 +398,7 @@ main {
 .chip-artifact     { color: var(--warning);      border-color: rgba(224,162,58,.4);  background: rgba(224,162,58,.10); }
 .chip-tool         { color: var(--accent);       border-color: rgba(168,120,216,.4); background: rgba(168,120,216,.10); }
 .chip-info         { color: var(--info);         border-color: rgba(74,140,216,.4);  background: rgba(74,140,216,.10); }
+.chip-done-gate    { color: var(--primary);      border-color: rgba(212,164,55,.4);  background: rgba(212,164,55,.10); }
 
 /* Model tier chips — pill + colored per tier */
 .chip-model {
@@ -736,6 +738,11 @@ main {
 .scope-memory {
   background: rgba(74,140,216,.15);
   color: var(--info);
+}
+
+.scope-acceptance {
+  background: rgba(212,164,55,.15);
+  color: var(--primary);
 }
 
 .guiding-file-name {

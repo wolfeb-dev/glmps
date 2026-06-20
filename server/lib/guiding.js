@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const GUIDING_NAMES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md'];
+const GUIDING_NAMES = ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md', 'acceptance.md'];
 const MAX_LEVELS = 24;
 
 /**
@@ -13,7 +13,7 @@ const MAX_LEVELS = 24;
  * @param {string|null|undefined} cwd            - session working directory
  * @param {string}                claudeDir       - path to ~/.claude
  * @param {string|null|undefined} projectMemoryDir - path to the session's project memory dir (optional)
- * @returns {{ name: string, path: string, scope: 'global'|'project'|'memory' }[]}
+ * @returns {{ name: string, path: string, scope: 'global'|'project'|'memory'|'acceptance' }[]}
  */
 export function computeGuiding(cwd, claudeDir, projectMemoryDir) {
   const seen = new Set();
@@ -34,7 +34,7 @@ export function computeGuiding(cwd, claudeDir, projectMemoryDir) {
             try {
               fs.accessSync(candidate, fs.constants.F_OK);
               seen.add(resolved);
-              project.push({ name, path: candidate, scope: 'project' });
+              project.push({ name, path: candidate, scope: name === 'acceptance.md' ? 'acceptance' : 'project' });
             } catch { /* not found */ }
           }
         }

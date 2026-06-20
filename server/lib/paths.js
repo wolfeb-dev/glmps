@@ -47,6 +47,8 @@ export function getPaths(env = process.env) {
     activeSessionsFile: path.join(claudeDir, '.claude-manager', 'active-sessions.json'),
     cmTap: path.join(claudeDir, '.claude-manager', 'statusline-tap.js'),
     settingsFile: path.join(claudeDir, 'settings.json'),
+    credentialsFile: path.join(claudeDir, '.credentials.json'),
+    cmStatuslineFile: path.join(claudeDir, '.claude-manager', 'statusline.json'),
     pluginsCacheDir: path.join(claudeDir, 'plugins', 'cache'),
     antigravityDirs,
     antigravityDir, // first entry; kept for consumers that need a single root
@@ -59,6 +61,7 @@ export function getPaths(env = process.env) {
     statusDir: path.join(stateDir, 'status'),
     requestsFile: path.join(stateDir, 'requests', 'resume.jsonl'),
     undoDir: path.join(stateDir, 'undo'),
+    doneGateDir: env.GLMPS_DONE_GATE_DIR ?? path.join(stateDir, 'done-gate'),
     agyCliDir,
     opencodeDir,
     codexDir,

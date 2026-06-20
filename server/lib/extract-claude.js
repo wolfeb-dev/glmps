@@ -2,7 +2,7 @@
 import { makeChange } from './change-capture.js';
 import { classifyGit } from './git-events.js';
 
-const CONTEXT_FILE_RE = /(^|[\\/])(CLAUDE|AGENTS|GEMINI)\.md$/i;
+const CONTEXT_FILE_RE = /(^|[\\/])(CLAUDE|AGENTS|GEMINI|acceptance)\.md$/i;
 const MEMORY_RE = /[\\/]memory[\\/][^\\/]+\.md$/i;
 
 export function extractClaudeEvents(line, sessionId) {

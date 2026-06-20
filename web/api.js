@@ -49,9 +49,12 @@ export async function getLearning() { return (await fetch('/api/learning')).json
 export async function addIdea(text) {
   return (await fetch('/api/learning/idea', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) })).json();
 }
-export async function learningAction(id, action, rule) {
-  return (await fetch(`/api/learning/item/${encodeURIComponent(id)}/${action}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(rule != null ? { rule } : {}) })).json();
+export async function learningAction(id, action, arg) {
+  // promote carries a { target } ('global'|'memory'); alternative carries a { rule }.
+  const body = action === 'promote' ? { target: arg } : (arg != null ? { rule: arg } : {});
+  return (await fetch(`/api/learning/item/${encodeURIComponent(id)}/${action}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json();
 }
 export async function setLearningConfig(autoApplyGaps) {
   return (await fetch('/api/learning/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ autoApplyGaps }) })).json();
 }
+export async function fetchBudget() { return (await fetch('/api/budget')).json(); }

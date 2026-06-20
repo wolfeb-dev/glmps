@@ -106,6 +106,30 @@ export function buildIdeaApplyCommand(id, assetsDir, paths) {
 }
 
 // ---------------------------------------------------------------------------
+// buildMemoryApplyCommand(id, paths) -> string
+//
+// Builds a `claude -p "..."` command for promote-to-memory: instruct the headless
+// hand to compose a proper memory file (frontmatter + Why/How body) into
+// paths.memoryDir and add a one-line pointer to that dir's MEMORY.md, matching the
+// existing memory format. Quote-free instruction text (companion runs it via the
+// user's shell). paths: { requestPath, resultPath, memoryDir }.
+// ---------------------------------------------------------------------------
+
+export function buildMemoryApplyCommand(id, paths) {
+  const instructions = [
+    `You are promoting a learning to the user memory system (id: ${id}).`,
+    `1. Read the request JSON at ${paths.requestPath} (it has the learning text and metadata).`,
+    `2. Compose ONE memory file for the directory ${paths.memoryDir}: a short kebab-case slug filename ending in .md, with YAML frontmatter (name, a one-line description, and metadata.type set to feedback or project as fits), then a concise body; for feedback or project add a Why line and a How to apply line.`,
+    `3. Write that memory file into ${paths.memoryDir}.`,
+    `4. Add a one-line pointer to ${paths.memoryDir}/MEMORY.md under its index, matching the existing line format in that file (a dash, a markdown link to the new file, then a short hook).`,
+    `5. Write ${paths.resultPath} as JSON with two fields: status set to applied, and file set to the memory filename you created.`,
+    `Do not ask questions. Complete all steps silently.`,
+  ].join(' ');
+  const escaped = instructions.replace(/"/g, '\\"');
+  return `claude -p "${escaped}"`;
+}
+
+// ---------------------------------------------------------------------------
 // enqueueIdeaApply({ requestsFile, command, cwd })
 //
 // Appends one JSONL record { type:'terminal', command, cwd } to requestsFile.

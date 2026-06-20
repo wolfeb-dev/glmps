@@ -83,7 +83,7 @@ export function scanInventory({ pluginsCacheDir, projectsDir, projectRoots = [],
   }
 
   for (const root of projectRoots) {
-    for (const name of ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md']) {
+    for (const name of ['CLAUDE.md', 'AGENTS.md', 'GEMINI.md', 'acceptance.md']) {
       const f = path.join(root, name);
       if (fs.existsSync(f)) contextFiles.push({ name, root, path: f });
     }

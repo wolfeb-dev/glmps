@@ -1,7 +1,7 @@
 // server/test/learning-apply.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyGuard, buildIdeaApplyCommand, enqueueIdeaApply, ingestResults } from '../lib/learning-apply.js';
+import { applyGuard, buildIdeaApplyCommand, buildMemoryApplyCommand, enqueueIdeaApply, ingestResults } from '../lib/learning-apply.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -28,6 +28,17 @@ test('buildIdeaApplyCommand references the id and assets dir', () => {
   const cmd = buildIdeaApplyCommand('idea-1', '/A', { requestPath: '/R/idea-1.json', resultPath: '/Res/idea-1.json' });
   assert.match(cmd, /^claude -p /);
   assert.match(cmd, /idea-1/);
+});
+
+test('buildMemoryApplyCommand references id, memoryDir, MEMORY.md and result path', () => {
+  const cmd = buildMemoryApplyCommand('idea-7', {
+    requestPath: '/R/idea-7.json', resultPath: '/Res/idea-7.json', memoryDir: '/M/proj/memory',
+  });
+  assert.match(cmd, /^claude -p /);
+  assert.match(cmd, /idea-7/);
+  assert.match(cmd, /\/M\/proj\/memory/);
+  assert.match(cmd, /MEMORY\.md/);
+  assert.match(cmd, /\/Res\/idea-7\.json/);
 });
 
 test('enqueueIdeaApply appends one terminal request line; ingestResults reads+clears', () => {

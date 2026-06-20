@@ -1,5 +1,5 @@
 // web/app.js
-import { getState, onEvents, getLearning, addIdea, learningAction, setLearningConfig } from './api.js';
+import { getState, onEvents, getLearning, addIdea, learningAction, setLearningConfig, fetchBudget } from './api.js';
 import { renderRail, toolColorClass } from './grid.js';
 import { mountLauncher } from './launcher.js';
 import { mountSettings } from './settings.js';
@@ -252,6 +252,37 @@ async function renderLearningView() {
   });
 }
 
+// ── Analytics nav badge — max limiter % from /api/budget ──
+function updateAnalyticsBadge(data) {
+  const btn = document.querySelector('#topbar nav button[data-view="analytics"]');
+  if (!btn) return;
+
+  let badge = btn.querySelector('.usage-nav-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'usage-nav-badge';
+    btn.appendChild(badge);
+  }
+
+  const usage = data?.usage ?? {};
+  const pcts = [
+    usage.fiveHour?.usedPercent,
+    usage.sevenDay?.usedPercent,
+    usage.sevenDaySonnet?.usedPercent,
+  ].filter(v => v != null);
+
+  if (pcts.length === 0) {
+    badge.style.display = 'none';
+    return;
+  }
+
+  const max = Math.floor(Math.max(...pcts));
+  badge.style.display = '';
+  badge.textContent = max + '%';
+  const colorClass = max >= 80 ? 'usage-nav-badge-warn' : 'usage-nav-badge-normal';
+  badge.className = 'usage-nav-badge ' + colorClass;
+}
+
 // ── Nav buttons ──────────────────────────────────
 for (const btn of document.querySelectorAll('#topbar nav button')) {
   btn.addEventListener('click', async () => {
@@ -304,6 +335,10 @@ for (const btn of document.querySelectorAll('#topbar nav button')) {
   // Await the launcher (it fetches config) before mounting settings so the
   // settings gear lands to the RIGHT of the New-terminal dropdown.
   if (topbar) { await mountLauncher(topbar); mountSettings(topbar); }
+
+  // Seed the analytics badge on load without navigating to the view
+  fetchBudget().then(data => updateAnalyticsBadge(data)).catch(() => {});
+
   try {
     const state = await getState();
     render(state);

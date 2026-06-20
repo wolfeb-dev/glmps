@@ -6,19 +6,68 @@
   "version": "0.1.1",
   "icon": "media/icon.png",
   "license": "UNLICENSED",
-  "repository": { "type": "git", "url": "https://localhost/glmps" },
-  "engines": { "vscode": "^1.90.0" },
-  "categories": ["Other"],
-  "main": "./dist/extension.js",
-  "activationEvents": ["onStartupFinished"],
-  "contributes": {
-    "commands": [{ "command": "missionControl.open", "title": "GLMPS: Open Dashboard" }],
-    "configuration": { "title": "GLMPS", "properties": {
-      "missionControl.autoStart": { "type": "boolean", "default": true, "description": "Start the GLMPS server when Antigravity starts" },
-      "missionControl.serverPath": { "type": "string", "default": "", "description": "Absolute path to server/server.js in your GLMPS checkout" },
-      "missionControl.port": { "type": "number", "default": 8123 }
-    }}
+  "repository": {
+    "type": "git",
+    "url": "https://localhost/glmps"
   },
-  "scripts": { "build": "node esbuild.mjs", "package": "vsce package --no-dependencies" },
-  "devDependencies": { "@types/vscode": "1.90.0", "@types/node": "^18", "esbuild": "^0.21.0", "typescript": "^5.4.0", "@vscode/vsce": "^2.26.0" }
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "missionControl.open",
+        "title": "GLMPS: Open Dashboard"
+      }
+    ],
+    "icons": {
+      "glmps-mark": {
+        "description": "GLMPS mark",
+        "default": {
+          "fontPath": "./media/glmps-icons.woff",
+          "fontCharacter": "\\E900"
+        }
+      }
+    },
+    "configuration": {
+      "title": "GLMPS",
+      "properties": {
+        "missionControl.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start the GLMPS server when Antigravity starts"
+        },
+        "missionControl.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to server/server.js in your GLMPS checkout"
+        },
+        "missionControl.port": {
+          "type": "number",
+          "default": 8123
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^18",
+    "@types/vscode": "1.90.0",
+    "@vscode/vsce": "^2.26.0",
+    "esbuild": "^0.21.0",
+    "svg2ttf": "^6.1.0",
+    "svgicons2svgfont": "^15.0.1",
+    "ttf2woff": "^3.0.0",
+    "typescript": "^5.4.0"
+  }
 }

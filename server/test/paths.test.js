@@ -46,6 +46,16 @@ test('assetsDir defaults under home', () => {
   assert.equal(P.assetsDir, path.join(os.homedir(), 'glmps-assets'));
 });
 
+test('doneGateDir honors GLMPS_DONE_GATE_DIR override', () => {
+  const P = getPaths({ GLMPS_DONE_GATE_DIR: '/tmp/dg' });
+  assert.equal(P.doneGateDir, '/tmp/dg');
+});
+
+test('doneGateDir defaults under stateDir', () => {
+  const P = getPaths({ GLMPS_STATE_DIR: '/tmp/st' });
+  assert.equal(P.doneGateDir, path.join('/tmp/st', 'done-gate'));
+});
+
 test('env overrides win and ensureStateDirs creates subdirs', () => {
   const tmp = mkTmp();
   const p = getPaths({ GLMPS_STATE_DIR: tmp, GLMPS_CLAUDE_DIR: 'X:\\c', GLMPS_ANTIGRAVITY_DIR: 'X:\\a' });

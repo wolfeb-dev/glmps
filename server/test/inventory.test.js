@@ -53,6 +53,22 @@ test('scanInventory finds plugin skills, agents, memory, and context files', () 
   assert.ok(inv.skills.every(s => typeof s.description === 'string'));
 });
 
+test('scanInventory lists acceptance.md as a context file', () => {
+  const tmp = mkTmp();
+  const proj = path.join(tmp, 'work');
+  fs.mkdirSync(proj, { recursive: true });
+  fs.writeFileSync(path.join(proj, 'acceptance.md'), '---\ncommands:\n  - npm test\n---\n');
+
+  const inv = scanInventory({
+    pluginsCacheDir: path.join(tmp, 'nocache'),
+    projectsDir: path.join(tmp, 'noproj'),
+    projectRoots: [proj],
+    claudeDir: path.join(tmp, 'noclaude'),
+  });
+  assert.ok(inv.contextFiles.some(c => c.name === 'acceptance.md' && c.root === proj),
+    `expected acceptance.md in contextFiles: ${JSON.stringify(inv.contextFiles)}`);
+});
+
 test('missing directories yield empty inventories, no throw', () => {
   const inv = scanInventory({
     pluginsCacheDir: 'Q:\\nope', projectsDir: 'Q:\\nope2', projectRoots: ['Q:\\nope3'], claudeDir: 'Q:\\nope4' });

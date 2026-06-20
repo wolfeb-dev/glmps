@@ -1,0 +1,284 @@
+/* === usage panel (budget.css) === */
+
+/* ── Usage panel root — embedded at top of Analytics ── */
+.usage-root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+/* ── Panel card ──────────────────────────────────────── */
+.usage-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Faint amber glow in top-left — matches headline aesthetic of the old meter */
+.usage-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(180px 80px at 0% 0%, rgba(224,162,58,.04), transparent 70%);
+  pointer-events: none;
+}
+
+/* ── USAGE heading ───────────────────────────────────── */
+.usage-heading {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding-left: 8px;
+  border-left: 2px solid var(--primary);
+}
+
+/* ── Plan + model header line ────────────────────────── */
+.usage-meta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.usage-plan-chip {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--amber);
+  background: rgba(224,162,58,.10);
+  border: 1px solid rgba(224,162,58,.35);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.usage-meta-sep {
+  color: var(--muted-fg);
+  opacity: 0.4;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.usage-meta-model {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted-fg);
+  white-space: nowrap;
+}
+
+.usage-meta-ctx {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted-fg);
+  white-space: nowrap;
+}
+
+.usage-meta-cost {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ── Bar list ─────────────────────────────────────────── */
+.usage-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Individual bar row */
+.usage-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* Label line: name left, % right */
+.usage-bar-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.usage-bar-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg);
+  flex: 1;
+  min-width: 0;
+}
+
+.usage-bar-pct {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  color: var(--fg);
+  transition: color 0.3s;
+}
+
+/* High-use pct text — matches bar color */
+.usage-bar-pct-warn {
+  color: var(--warning);
+}
+
+/* 6px track — matches the official extension */
+.usage-bar-track {
+  height: 6px;
+  background: var(--muted);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.usage-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease, background-color 0.3s;
+  min-width: 2px;
+}
+
+/* Normal fill — accent/success green */
+.usage-bar-fill-normal {
+  background: var(--success);
+}
+
+/* Warn fill — amber at >=80% */
+.usage-bar-fill-warn {
+  background: var(--warning);
+}
+
+/* Reset countdown below bar */
+.usage-bar-reset {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--muted-fg);
+  opacity: 0.7;
+}
+
+/* ── Manage link ──────────────────────────────────────── */
+.usage-manage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding-top: var(--sp-1);
+  border-top: 1px solid var(--border);
+}
+
+.usage-manage-link {
+  font-size: 11px;
+  color: var(--info);
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.usage-manage-link:hover { opacity: 1; text-decoration: underline; }
+
+.usage-updated-ts {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  color: var(--muted-fg);
+  opacity: 0.45;
+}
+
+/* ── Flag chips ───────────────────────────────────────── */
+.usage-flags {
+  display: flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+
+.usage-flag-chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.usage-flag-chip-warn {
+  color: var(--amber);
+  background: rgba(224,162,58,.10);
+  border-color: rgba(224,162,58,.4);
+}
+
+.usage-flag-chip-error {
+  color: var(--red);
+  background: rgba(224,86,86,.08);
+  border-color: rgba(224,86,86,.3);
+}
+
+.usage-flag-chip-info {
+  color: var(--muted-fg);
+  background: rgba(138,146,156,.08);
+  border-color: rgba(138,146,156,.25);
+}
+
+/* ── Not-available state ──────────────────────────────── */
+.usage-unavailable {
+  font-size: 12px;
+  color: var(--muted-fg);
+  font-style: italic;
+  padding: var(--sp-1) 0;
+}
+
+/* ── Analytics nav badge — shows max limiter % ───────── */
+.usage-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(138,146,156,.12);
+  border: 1px solid rgba(138,146,156,.3);
+  color: var(--muted-fg);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1;
+  margin-left: 4px;
+  vertical-align: middle;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.usage-nav-badge-normal {
+  color: var(--success);
+  background: rgba(63,184,127,.12);
+  border-color: rgba(63,184,127,.4);
+}
+
+.usage-nav-badge-warn {
+  color: var(--warning);
+  background: rgba(224,162,58,.13);
+  border-color: rgba(224,162,58,.4);
+}
+
+/* Keep old bgt-* names as aliases so nothing else breaks */
+.bgt-nav-badge { display: none; }
+
+/* === end usage panel === */

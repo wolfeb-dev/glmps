@@ -54,6 +54,16 @@ test('Read of CLAUDE.md gets op:read', () => {
   assert.equal(ev[0].op, 'read');
 });
 
+test('Write/Edit of acceptance.md classifies as context-file (context lane, diff)', () => {
+  const ev = extractClaudeEvents(assistantLine([
+    { id: 't1', name: 'Edit', input: { file_path: 'D:\\glmps\\acceptance.md', old_string: 'a', new_string: 'b' } },
+  ]), SID);
+  assert.equal(ev[0].kind, 'context-file');
+  assert.equal(ev[0].lane, 'context');
+  assert.equal(ev[0].op, 'write');
+  assert.ok(ev[0].change, 'should carry a change diff');
+});
+
 test('Write of CLAUDE.md gets op:write and change with old:null', () => {
   const ev = extractClaudeEvents(assistantLine([
     { id: 't1', name: 'Write', input: { file_path: 'C:\\u\\.claude\\CLAUDE.md', content: 'new body' } },

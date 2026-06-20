@@ -81,3 +81,42 @@ test('learning HTTP endpoints: idea, config, alternative, approve->applied, disc
     fs.rmSync(assetsDir, { recursive: true, force: true });
   }
 });
+
+test('promote: target global commits a guard; target memory dispatches a memory-compose', async () => {
+  const stateDir = tmp('mc-state-');
+  const assetsDir = gitAssetsRepo();
+  const env = { ...process.env, GLMPS_STATE_DIR: stateDir, GLMPS_ASSETS_DIR: assetsDir };
+  const h = await startServer({ port: 0, env, configFile: path.join(stateDir, 'no-config.json') });
+  const base = `http://127.0.0.1:${h.port}`;
+  const j = async (p, opt) => { const r = await fetch(base + p, opt); return { status: r.status, body: await r.json() }; };
+  const post = (p, obj) => j(p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(obj) });
+
+  try {
+    // promote to global -> deterministic guard commit into the assets repo
+    const i1 = await post('/api/learning/idea', { text: 'prefer parallel subagents for independent work' });
+    const pg = await post(`/api/learning/item/${i1.body.id}/promote`, { target: 'global' });
+    assert.equal(pg.status, 200);
+    assert.equal(pg.body.status, 'applied');
+    assert.ok(typeof pg.body.applyCommit === 'string' && pg.body.applyCommit.length >= 7);
+    const guard = fs.readFileSync(path.join(assetsDir, 'CLAUDE.global.md'), 'utf-8');
+    assert.match(guard, /## Learned guards/);
+    assert.match(guard, /prefer parallel subagents/);
+
+    // promote to memory -> dispatched + a terminal request enqueued mentioning MEMORY.md
+    const i2 = await post('/api/learning/idea', { text: 'managed exit already absorbs the morning edge' });
+    const pm = await post(`/api/learning/item/${i2.body.id}/promote`, { target: 'memory' });
+    assert.equal(pm.status, 200);
+    assert.equal(pm.body.status, 'dispatched');
+    const reqLines = fs.readFileSync(path.join(stateDir, 'requests', 'resume.jsonl'), 'utf-8').trim().split('\n');
+    const last = JSON.parse(reqLines[reqLines.length - 1]);
+    assert.equal(last.type, 'terminal');
+    assert.match(last.command, /MEMORY\.md/);
+
+    // unknown item -> 404
+    assert.equal((await post('/api/learning/item/nope/promote', { target: 'global' })).status, 404);
+  } finally {
+    await h.close?.();
+    fs.rmSync(stateDir, { recursive: true, force: true });
+    fs.rmSync(assetsDir, { recursive: true, force: true });
+  }
+});

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="36 36 128 128">
+  <!-- Monochrome GLMPS mark for the status-bar icon font: the geometric "G" =
+       a ~300deg ring band (outer r59 / inner r41, gap on the right) plus the
+       inward connector bar. Single fill, nonzero winding (outer CW, inner CCW
+       carves the ring; the bar is a CW rect that bridges into the center). -->
+  <path fill="#000" d="M 151.10 70.5 A 59 59 0 1 0 151.10 129.5 L 135.51 120.5 A 41 41 0 1 1 135.51 79.5 L 151.10 70.5 Z M 112 91 H 146 V 109 H 112 Z"/>
+</svg>
