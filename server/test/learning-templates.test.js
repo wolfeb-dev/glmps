@@ -21,10 +21,79 @@ test('guardForGap: heavy-edits-no-subagents is defined', () => {
   assert.match(entry.rule, /subagent/);
 });
 
-test('TEMPLATES map contains exactly the two seeded entries', () => {
+test('TEMPLATES map contains the original two seeded entries plus new ones', () => {
   assert.ok(TEMPLATES.has('ui-without-frontend-design'));
   assert.ok(TEMPLATES.has('heavy-edits-no-subagents'));
-  assert.equal(TEMPLATES.size, 2);
+  assert.ok(TEMPLATES.size >= 2);
+});
+
+// ---------------------------------------------------------------------------
+// New TEMPLATES entries (GOAL 2)
+// ---------------------------------------------------------------------------
+
+test('guardForGap: ui-design-too-late is defined with correct shape', () => {
+  const entry = guardForGap('ui-design-too-late');
+  assert.ok(entry, 'ui-design-too-late should exist');
+  assert.equal(entry.file, 'CLAUDE.global.md');
+  assert.equal(entry.section, 'Learned guards');
+  assert.match(entry.rule, /frontend-design/i);
+  assert.match(entry.rule, /before/i);
+});
+
+test('guardForGap: reread-loop is defined', () => {
+  const entry = guardForGap('reread-loop');
+  assert.ok(entry, 'reread-loop should exist');
+  assert.equal(entry.file, 'CLAUDE.global.md');
+  assert.equal(entry.section, 'Learned guards');
+  assert.match(entry.rule, /graphify/i);
+});
+
+test('guardForGap: done-without-verification is defined', () => {
+  const entry = guardForGap('done-without-verification');
+  assert.ok(entry, 'done-without-verification should exist');
+  assert.equal(entry.file, 'CLAUDE.global.md');
+  assert.equal(entry.section, 'Learned guards');
+  assert.match(entry.rule, /verification-before-completion/i);
+});
+
+test('guardForGap: bash-grep-over-grep-tool is defined', () => {
+  const entry = guardForGap('bash-grep-over-grep-tool');
+  assert.ok(entry, 'bash-grep-over-grep-tool should exist');
+  assert.equal(entry.file, 'CLAUDE.global.md');
+  assert.equal(entry.section, 'Learned guards');
+  assert.match(entry.rule, /Grep/);
+});
+
+test('guardForGap: opus-on-mechanical is defined', () => {
+  const entry = guardForGap('opus-on-mechanical');
+  assert.ok(entry, 'opus-on-mechanical should exist');
+  assert.equal(entry.file, 'CLAUDE.global.md');
+  assert.equal(entry.section, 'Learned guards');
+  assert.match(entry.rule, /[Oo]pus/);
+});
+
+test('guardForGap: serial-agents-no-parallel is defined', () => {
+  const entry = guardForGap('serial-agents-no-parallel');
+  assert.ok(entry, 'serial-agents-no-parallel should exist');
+  assert.equal(entry.file, 'CLAUDE.global.md');
+  assert.equal(entry.section, 'Learned guards');
+  assert.match(entry.rule, /parallel/i);
+});
+
+test('guardForGap: sleep-poll is defined', () => {
+  const entry = guardForGap('sleep-poll');
+  assert.ok(entry, 'sleep-poll should exist');
+  assert.equal(entry.file, 'CLAUDE.global.md');
+  assert.equal(entry.section, 'Learned guards');
+  assert.match(entry.rule, /sleep/i);
+});
+
+test('guardForGap: backtest-result-without-skeptic is defined', () => {
+  const entry = guardForGap('backtest-result-without-skeptic');
+  assert.ok(entry, 'backtest-result-without-skeptic should exist');
+  assert.equal(entry.file, 'CLAUDE.global.md');
+  assert.equal(entry.section, 'Learned guards');
+  assert.match(entry.rule, /backtest/i);
 });
 
 // ---------------------------------------------------------------------------

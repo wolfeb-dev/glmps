@@ -64,6 +64,50 @@ test('state endpoint lists session; SSE delivers extracted event on append', asy
   } finally { await srv.close(); }
 });
 
+test('SSE sends a hello event carrying the server buildId on connect', async () => {
+  const { env } = mkEnv();
+  const srv = await startServer({ port: 0, pollMs: 1000, env });
+  try {
+    const base = `http://127.0.0.1:${srv.port}`;
+    const res = await fetch(`${base}/api/events`);
+    const reader = res.body.getReader();
+    const deadline = Date.now() + 5000;
+    let text = '';
+    while (Date.now() < deadline && !text.includes('"type":"hello"')) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      text += Buffer.from(value).toString('utf-8');
+    }
+    const line = text.split('\n').find(l => l.startsWith('data:') && l.includes('"hello"'));
+    assert.ok(line, 'expected a hello data event on connect');
+    const payload = JSON.parse(line.slice('data:'.length).trim());
+    assert.equal(payload.type, 'hello');
+    assert.equal(typeof payload.buildId, 'string');
+    assert.ok(payload.buildId.length > 0);
+    await reader.cancel();
+  } finally { await srv.close(); }
+});
+
+test('SPA fallback serves index.html for client-side routes', async () => {
+  const { env } = mkEnv();
+  const srv = await startServer({ port: 0, pollMs: 1000, env });
+  try {
+    const base = `http://127.0.0.1:${srv.port}`;
+    // A route with no file extension -> the SPA shell (index.html)
+    const r = await fetch(`${base}/history`);
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type') || '', /text\/html/);
+    assert.match(await r.text(), /<title>GLMPS<\/title>/);
+    // A deep link with a param also serves the shell
+    const r2 = await fetch(`${base}/detail/abc123`);
+    assert.equal(r2.status, 200);
+    // Unknown /api path still 404s (must NOT fall back to index.html)
+    assert.equal((await fetch(`${base}/api/nope`)).status, 404);
+    // A missing asset (has a file extension) still 404s
+    assert.equal((await fetch(`${base}/nope.js`)).status, 404);
+  } finally { await srv.close(); }
+});
+
 test('file api routes enforce allowlist and conflicts', async () => {
   const { env } = mkEnv();
   const srv = await startServer({ port: 0, pollMs: 1000, env });

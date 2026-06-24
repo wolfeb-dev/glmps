@@ -1,5 +1,6 @@
 // web/editor.js
 import { readFile, saveFile, undoFile, openInEditor } from './api.js';
+import { renderDiff, findChangeRange } from './diff-view.js';
 
 let currentClose = null;
 
@@ -13,7 +14,7 @@ function dispatchToast(msg) {
   window.dispatchEvent(new CustomEvent('mc-toast', { detail: String(msg) }));
 }
 
-export function openEditor(path, { onClose } = {}) {
+export function openEditor(path, { onClose, diff } = {}) {
   const pane = document.getElementById('editor-pane');
   if (!pane) return;
 
@@ -84,22 +85,37 @@ export function openEditor(path, { onClose } = {}) {
 
     if (mode === 'preview') {
       setText(toggleBtn, 'Edit');
-      previewEl = document.createElement('pre');
+
+      // Show diff section above the file preview when a diff was provided
+      if (diff) {
+        const diffSection = document.createElement('div');
+        diffSection.className = 'ed-diff-section';
+        const diffHdr = document.createElement('div');
+        diffHdr.className = 'ed-diff-label';
+        setText(diffHdr, 'Recent change');
+        diffSection.appendChild(diffHdr);
+        diffSection.appendChild(renderDiff(diff));
+        body.appendChild(diffSection);
+      }
+
+      previewEl = document.createElement('div');
       previewEl.className = 'md-preview';
 
-      // Per-line span rendering — no innerHTML
+      // When opened from a tracked change, locate the new block in the file so
+      // those lines can carry the diff's green highlight inline (the red/removed
+      // context still lives in the "Recent change" section above).
+      const range = diff ? findChangeRange(content, diff) : null;
+
+      // Per-line block rendering — no innerHTML
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        const span = document.createElement('span');
-        if (/^#{1,6}\s/.test(line)) {
-          span.className = 'md-h';
-        }
-        setText(span, line);
-        previewEl.appendChild(span);
-        if (i < lines.length - 1) {
-          previewEl.appendChild(document.createTextNode('\n'));
-        }
+        const lineEl = document.createElement('div');
+        lineEl.className = 'md-line';
+        if (/^#{1,6}\s/.test(line)) lineEl.classList.add('md-h');
+        if (range && i >= range.start && i < range.end) lineEl.classList.add('md-change-line');
+        setText(lineEl, line);
+        previewEl.appendChild(lineEl);
       }
       body.appendChild(previewEl);
       textareaEl = null;
@@ -201,6 +217,7 @@ export function openEditor(path, { onClose } = {}) {
     pane.classList.add('hidden');
     pane.innerHTML = '';
     window.removeEventListener('keydown', onEsc);
+    document.removeEventListener('mousedown', onClickOff);
     currentClose = null;
     if (!opts.silent && typeof onClose === 'function') onClose();
   }
@@ -213,6 +230,13 @@ export function openEditor(path, { onClose } = {}) {
     if (e.key === 'Escape') close();
   }
   window.addEventListener('keydown', onEsc);
+
+  // Click-off to close: close when mousedown lands outside #editor-pane.
+  // Deferred so the click that opened the editor does not immediately close it.
+  function onClickOff(e) {
+    if (!pane.contains(e.target)) close();
+  }
+  setTimeout(() => document.addEventListener('mousedown', onClickOff), 0);
 
   // Initial load
   load();

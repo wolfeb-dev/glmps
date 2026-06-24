@@ -5,27 +5,36 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="learning.css">
   <link rel="stylesheet" href="budget.css">
+  <link rel="stylesheet" href="agents.css">
+  <link rel="stylesheet" href="map.css">
+  <link rel="stylesheet" href="board.css">
 </head><body>
   <header id="topbar">
     <span class="brand">
       <img class="brand-mark" src="glmps-mark.svg" alt="" width="24" height="24">
       <span class="brand-text">GLMPS</span>
     </span>
-    <nav><button data-view="grid" class="active">Live</button>
+    <nav><button data-view="dashboard" class="active">Dashboard</button>
+         <button data-view="map">Map</button>
+         <button data-view="grid">Detail</button>
          <button data-view="history">History</button>
-         <button data-view="analytics">Analytics</button>
-         <button data-view="learning">Learning</button></nav>
+         <button data-view="kanban">Kanban</button>
+         <button data-view="learning">Learning</button>
+         <button data-view="analytics">Analytics</button></nav>
     <span id="topstats"></span>
   </header>
   <main>
-    <section id="view-grid" class="view">
+    <section id="view-dashboard" class="view"></section>
+    <section id="view-grid" class="view hidden">
       <div id="rail"></div>
       <div id="detail-main"></div>
     </section>
+    <section id="view-map" class="view hidden"></section>
     <section id="view-detail" class="view hidden"></section>
     <section id="view-history" class="view hidden"></section>
     <section id="view-analytics" class="view hidden"></section>
     <section id="view-learning" class="view hidden"></section>
+    <section id="view-kanban" class="view hidden"></section>
   </main>
   <div id="tools-strip"></div>
   <div id="editor-pane" class="hidden"></div>

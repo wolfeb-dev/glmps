@@ -2,15 +2,15 @@
   <img src="web/glmps-wordmark.svg" alt="GLMPS — Watch your agents. Catch the misses." width="760">
 </p>
 
-GLMPS provides real-time visibility and execution analysis for autonomous agent workflows, enabling developers to monitor agent behavior, validate actions, and align guardrails.
+**Watch your agents. Catch the misses.**
+
+GLMPS watches every Claude Code and CLI-agent session on your machine, catches the moments an agent should have used a skill, subagent, or hook and didn't, and helps you turn each miss into a durable guard. It reads your agents' own session logs to classify what each one uses and flag capability gaps - it never instruments or proxies them.
 
 <p align="center">
   <img src="docs/screenshots/dashboard_live.png" alt="GLMPS Live View" width="100%">
 </p>
 
-It watches every Claude Code and CLI-agent session on your machine, catches the moments your agent should have used a skill, subagent, or hook and didn't, and helps you turn each miss into a durable guard.
-
-The live dashboard is the glimpse; the **Learning loop** is how you act on it. GLMPS reads your agents' own session logs to classify what each one uses and flag capability gaps - never instrumenting or proxying them.
+A live dashboard is the glimpse; the **Learning loop** is how you act on it: a miss the dashboard catches today becomes a guard that prevents it tomorrow.
 
 <p align="center">
   <img src="docs/screenshots/dashboard_learning.png" alt="GLMPS Learning View" width="100%">
@@ -86,7 +86,7 @@ The top bar has four views. The Live console is shown at the top of this README;
     <img src="docs/screenshots/dashboard_history.png" alt="GLMPS History View" width="100%">
   </p>
 
-- **Analytics** - usage over time: cost and token trends, an activity heatmap, and per-model and per-project breakdowns. Hand-built charts, no charting library.
+- **Analytics** - usage over time: cost and token trends, an activity heatmap, per-model and per-project breakdowns, and a usage panel mirroring the official Claude Code plan/limit view. Hand-built charts, no charting library.
 
   <p align="center">
     <img src="docs/screenshots/dashboard_analytics.png" alt="GLMPS Analytics View" width="100%">
@@ -250,4 +250,4 @@ Runtime state lives under `~/.glmps/` - file offsets, the session index, per-ses
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Before making a clone public, run through [docs/PUBLISHING.md](docs/PUBLISHING.md).
+MIT. See [LICENSE](LICENSE).

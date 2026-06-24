@@ -8,6 +8,7 @@
   "inventoryScanMs": 60000,
   "searchResultCap": 200,
   "backfillBytes": 2097152,
+  "backtestProjects": [],
   "terminals": [
     { "label": "Claude", "command": "claude", "icon": "claude" },
     { "label": "Gemini", "command": "gemini", "icon": "gemini" },

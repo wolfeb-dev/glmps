@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   dedupKey,
+  normalizeProject,
   applyAction,
   upsertGapInto,
   emptyState,
@@ -65,6 +66,56 @@ test('upsertGapInto: dedups, counts distinct sessions, never resurfaces/churns d
   r = upsertGapInto(s, { code: 'ui', severity: 'warn', message: 'm' }, { project: 'P', sessionId: 's3' });
   assert.equal(r.item.status, 'discarded'); // stays dismissed
   assert.equal(r.changed, false);
+});
+
+// ---------------------------------------------------------------------------
+// Project-key normalization — the dedup key must collapse the different
+// `project` spellings the three writers produce for the same real repo
+// (live=raw cwd `D:\glmps`, synth=projects-slug `D--glmps`).
+// ---------------------------------------------------------------------------
+
+test('normalizeProject: collapses path spellings to the projects-dir slug', () => {
+  assert.equal(normalizeProject('D:\\glmps'), 'D--glmps');
+  assert.equal(normalizeProject('D:/glmps'), 'D--glmps');
+  assert.equal(normalizeProject('D--glmps'), 'D--glmps'); // idempotent
+  assert.equal(normalizeProject('D:\\My Web App'), 'D--My-Web-App');
+  assert.equal(normalizeProject('D:\\My_Data-Pipeline'), 'D--My-Data-Pipeline');
+  assert.equal(normalizeProject(''), '');
+  assert.equal(normalizeProject(null), '');
+  assert.equal(normalizeProject(undefined), '');
+});
+
+test('dedupKey: same repo under raw-cwd and slug spellings hashes to one key', () => {
+  assert.equal(
+    dedupKey({ source: 'gap', code: 'ui', project: 'D:\\glmps' }),
+    dedupKey({ source: 'gap', code: 'ui', project: 'D--glmps' }),
+  );
+});
+
+test('upsertGapInto: raw-cwd and slug spellings collapse to a single row', () => {
+  let s = emptyState();
+  let r = upsertGapInto(s, { code: 'ui', severity: 'warn', message: 'm' }, { project: 'D:\\glmps', sessionId: 's1' });
+  assert.equal(r.isNew, true);
+  s = r.state;
+  // Synth emits the same real repo under the slug spelling — must NOT create a 2nd row.
+  r = upsertGapInto(s, { code: 'ui', severity: 'warn', message: 'm' }, { project: 'D--glmps', sessionId: 's2' });
+  assert.equal(r.isNew, false);
+  assert.equal(r.state.items.length, 1);
+  // Stored project is the canonical slug regardless of which spelling was written.
+  assert.equal(r.state.items[0].project, 'D--glmps');
+});
+
+test('upsertGapInto: applied row suppresses re-detection under a different project spelling', () => {
+  // This is the reported bug: an applied gap reappears as a fresh pending dupe
+  // because a different writer spelled `project` differently.
+  let s = emptyState();
+  s = upsertGapInto(s, { code: 'ui', severity: 'warn', message: 'm' }, { project: 'D--glmps', sessionId: 's1' }).state;
+  s = markApplied(s, s.items[0].id, 'commit1').state;
+  const r = upsertGapInto(s, { code: 'ui', severity: 'warn', message: 'm' }, { project: 'D:\\glmps', sessionId: 's2' });
+  assert.equal(r.isNew, false);            // no fresh pending dupe
+  assert.equal(r.changed, false);
+  assert.equal(r.item.status, 'applied');  // stays resolved
+  assert.equal(r.state.items.length, 1);
 });
 
 test('applyAction: discard/alternative transitions', () => {

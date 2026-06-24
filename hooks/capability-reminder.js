@@ -21,6 +21,22 @@ const RULES = [
     re: /\b(each of|all of the|multiple (?:files|services|projects|repos)|several (?:files|services|projects)|in parallel|fan ?out|across (?:all|the) )\b/i,
     msg: 'Independent multi-part work → consider dispatching parallel subagents.',
   },
+  {
+    re: /\b(backtest|sortino|sharpe|walk[- ]?forward|out[- ]?of[- ]?sample|equity curve|win ?rate|drawdown)\b/i,
+    msg: 'Trading/backtest result -> validate with backtest-skeptic before trusting or committing.',
+  },
+  {
+    re: /\.cs\b|ninjascript|ninjatrader|\b(indicator|strategy)\b/i,
+    msg: 'NinjaScript change -> headlessly compile via test_ninjascript_compile.py before claiming it compiles.',
+  },
+  {
+    re: /\b(how does|where is|architecture|refresh yourself|understand the|trace the|what calls|data ?flow|code ?base)\b/i,
+    msg: 'Codebase-orientation question -> query graphify (graphify query/path/explain) before re-reading files.',
+  },
+  {
+    re: /\b(is it done|are we done|good to go|ship it|works now|is it working|ready to commit|all set)\b/i,
+    msg: 'Before claiming done -> run verification-before-completion with real command output.',
+  },
 ];
 
 export function capabilityReminders(prompt) {

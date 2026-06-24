@@ -23,12 +23,29 @@ function sha1(str) {
 }
 
 // ---------------------------------------------------------------------------
+// normalizeProject(p) -> canonical project key
+//
+// The three store writers spell `project` differently for the SAME repo:
+//   live /api/state -> raw cwd            "D:\\glmps"
+//   Stop-hook feeder -> (now) raw cwd     "D:\\glmps"
+//   SessionStart synth -> projects slug   "D--glmps"
+// Map all of them to the ~/.claude/projects dir-slug form so dedupKey collapses
+// them to one row. The slug replaces every non-alphanumeric char with '-', which
+// is exactly how Claude Code names its projects/ subdirectories, and is idempotent
+// on an already-slugged value (D--glmps -> D--glmps).
+// ---------------------------------------------------------------------------
+
+export function normalizeProject(p) {
+  return String(p ?? '').replace(/[^A-Za-z0-9]/g, '-');
+}
+
+// ---------------------------------------------------------------------------
 // dedupKey(item) -> string
 // ---------------------------------------------------------------------------
 
 export function dedupKey(item) {
   if (item.source === 'gap') {
-    return sha1(`${item.code}|${item.project}`);
+    return sha1(`${item.code}|${normalizeProject(item.project)}`);
   }
   return item.id;
 }
@@ -53,7 +70,10 @@ function titleFromGap(gap) {
 // ---------------------------------------------------------------------------
 
 export function upsertGapInto(state, gap, ctx = {}) {
-  const project = ctx.project ?? '';
+  // Canonicalize the project so the same repo always keys to one row regardless
+  // of which writer (and which spelling) produced it. The stored `project` field
+  // is the canonical slug too.
+  const project = normalizeProject(ctx.project ?? '');
   const sessionId = ctx.sessionId ?? '';
   const key = sha1(`${gap.code}|${project}`);
   const existing = state.items.find((i) => i.source === 'gap' && i.id === key);
@@ -255,13 +275,6 @@ export function upsertGap(stateDir, gap, ctx) {
 export function addIdeaTo(stateDir, text) {
   const state = load(stateDir);
   const result = addIdea(state, text);
-  save(stateDir, result.state);
-  return result;
-}
-
-export function transition(stateDir, id, action, payload) {
-  const state = load(stateDir);
-  const result = applyAction(state, id, action, payload);
   save(stateDir, result.state);
   return result;
 }

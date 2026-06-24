@@ -256,7 +256,11 @@ function buildEmpty(msg) {
 export function renderLearning(root, data, handlers) {
   // Clear the root — only innerHTML = '' to clear; no data assigned
   root.innerHTML = '';
-  root.className = 'lrn-root';
+  // ADD the style class; do NOT overwrite. `root` is the #view-learning section,
+  // which carries the structural `view` class that showView() toggles to hide it.
+  // `root.className = 'lrn-root'` stripped `view`, so after visiting Learning the
+  // section could no longer be hidden and leaked onto whatever view opened next.
+  root.classList.add('lrn-root');
 
   const items = data?.items ?? [];
   const config = data?.config ?? {};

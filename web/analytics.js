@@ -10,6 +10,7 @@ import {
   donutArcs,
   heatBuckets,
   maxOf,
+  graphifySavings,
 } from './analytics-calc.js';
 
 import { renderUsage } from './budget.js';
@@ -65,7 +66,7 @@ function shortDate(date) {
 }
 
 // ── totals strip ────────────────────────────────────
-function buildTotals(totals, daily) {
+function buildTotals(totals, daily, savings) {
   const t = totals || {};
   const strip = el('div', 'an-totals');
 
@@ -92,6 +93,22 @@ function buildTotals(totals, daily) {
     card.appendChild(el('div', 'an-stat-label', c.label));
     strip.appendChild(card);
   }
+
+  // Graphify savings — an estimate, only shown when there's an indexed graph to
+  // ground it. The '~' prefix signals it's modeled, not metered; the tooltip
+  // carries the methodology (color is never the sole indicator of meaning).
+  if (savings && savings.savedTokens > 0) {
+    const pct = Math.round(savings.ratio * 100);
+    const projects = `${fmtInt(savings.graphs)} project${savings.graphs === 1 ? '' : 's'}`;
+    const card = el('div', 'an-stat an-stat-graphify');
+    card.appendChild(el('div', 'an-stat-value', '~' + fmtTokens(savings.savedTokens)));
+    card.appendChild(el('div', 'an-stat-label', 'Graphify saved'));
+    card.title =
+      `Estimated tokens saved by querying graphify instead of reading raw source for orientation.\n` +
+      `${projects} indexed · ${fmtInt(savings.nodes)} graph nodes · ~${pct}% smaller than raw source.`;
+    strip.appendChild(card);
+  }
+
   return strip;
 }
 
@@ -317,14 +334,17 @@ export async function renderAnalytics(container) {
   const loading = el('div', 'an-empty', 'Loading analytics…');
   container.appendChild(loading);
 
-  // Fetch budget and analytics data in parallel
-  let budgetData, analyticsData;
-  [budgetData, analyticsData] = await Promise.allSettled([
+  // Fetch budget, analytics and graph-status data in parallel. Graph status is
+  // best-effort: if it fails, the savings card simply doesn't render.
+  let budgetData, analyticsData, graphData;
+  [budgetData, analyticsData, graphData] = await Promise.allSettled([
     fetch('/api/budget').then(r => r.json()),
     fetchUsage(),
-  ]).then(([b, a]) => [
+    fetch('/api/graph/status').then(r => r.json()),
+  ]).then(([b, a, g]) => [
     b.status === 'fulfilled' ? b.value : null,
     a.status === 'fulfilled' ? a.value : null,
+    g.status === 'fulfilled' ? g.value : null,
   ]);
 
   container.innerHTML = '';
@@ -347,8 +367,9 @@ export async function renderAnalytics(container) {
   const perSession = analyticsData?.perSession ?? [];
   const totals = analyticsData?.totals ?? {};
 
-  // 1) Totals strip
-  root.appendChild(buildTotals(totals, daily));
+  // 1) Totals strip (+ graphify savings estimate, when a graph is indexed)
+  const savings = graphifySavings(graphData?.graphs ?? []);
+  root.appendChild(buildTotals(totals, daily, savings));
 
   // 2) Daily bar chart (full width)
   root.appendChild(buildDailyChart(daily));

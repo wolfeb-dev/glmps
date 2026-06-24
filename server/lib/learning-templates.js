@@ -23,6 +23,70 @@ export const TEMPLATES = new Map([
       rule: '- When making many independent edits across files, dispatch parallel subagents instead of editing serially.',
     },
   ],
+  [
+    'ui-design-too-late',
+    {
+      file: 'CLAUDE.global.md',
+      section: 'Learned guards',
+      rule: '- Invoke frontend-design BEFORE the first UI/CSS edit, not after.',
+    },
+  ],
+  [
+    'reread-loop',
+    {
+      file: 'CLAUDE.global.md',
+      section: 'Learned guards',
+      rule: '- Do not re-read an unchanged file; for codebase orientation query graphify (graphify query/path/explain) instead of repeated reads.',
+    },
+  ],
+  [
+    'done-without-verification',
+    {
+      file: 'CLAUDE.global.md',
+      section: 'Learned guards',
+      rule: '- Before claiming done or committing, run verification-before-completion and show the actual command output.',
+    },
+  ],
+  [
+    'bash-grep-over-grep-tool',
+    {
+      file: 'CLAUDE.global.md',
+      section: 'Learned guards',
+      rule: '- Use the Grep/Read tools instead of Bash grep/cat for searching and reading files.',
+    },
+  ],
+  [
+    'opus-on-mechanical',
+    {
+      file: 'CLAUDE.global.md',
+      section: 'Learned guards',
+      rule: "- Set model:'sonnet'|'haiku' on research/implementation/mechanical subagent dispatches; reserve Opus for orchestration and hard reasoning.",
+    },
+  ],
+  [
+    'serial-agents-no-parallel',
+    {
+      file: 'CLAUDE.global.md',
+      section: 'Learned guards',
+      rule: '- Dispatch 2+ independent subagents in a single message (parallel), with narrow per-agent file ownership.',
+    },
+  ],
+  [
+    'sleep-poll',
+    {
+      file: 'CLAUDE.global.md',
+      section: 'Learned guards',
+      rule: '- Never poll with sleep N then cat - use run_in_background or Monitor.',
+    },
+  ],
+  [
+    'backtest-result-without-skeptic',
+    {
+      file: 'CLAUDE.global.md',
+      section: 'Learned guards',
+      rule: '- In trading repos, no backtest/strategy result is kept or committed until backtest-skeptic validates it.',
+    },
+  ],
 ]);
 
 // ---------------------------------------------------------------------------

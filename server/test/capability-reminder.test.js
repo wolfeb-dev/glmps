@@ -51,3 +51,55 @@ test('caps at 3 reminders', () => {
   const r = capabilityReminders('build a new UI component, it is broken, do it across all projects in parallel');
   assert.ok(r.length <= 3);
 });
+
+test('backtest/trading prompts → backtest-skeptic reminder', () => {
+  for (const p of [
+    'the sortino ratio improved after the backtest',
+    'check the sharpe and drawdown on this equity curve',
+    'run a walk-forward to validate the win rate',
+    'out-of-sample results look good',
+  ]) {
+    const r = capabilityReminders(p);
+    assert.ok(r.some(x => /backtest-skeptic/.test(x)), `expected backtest-skeptic for: ${p}`);
+  }
+});
+
+test('NinjaScript prompts → headless compile reminder', () => {
+  for (const p of [
+    'update the NinjaScript indicator logic',
+    'fix this NinjaTrader strategy',
+    'edit the .cs file for the new stop rule',
+  ]) {
+    const r = capabilityReminders(p);
+    assert.ok(r.some(x => /test_ninjascript_compile/.test(x)), `expected compile reminder for: ${p}`);
+  }
+});
+
+test('codebase-orientation prompts → graphify reminder', () => {
+  for (const p of [
+    'how does the event pipeline work',
+    'where is the session list rendered',
+    'refresh yourself on the architecture before we start',
+    'trace the data flow from tap to UI',
+  ]) {
+    const r = capabilityReminders(p);
+    assert.ok(r.some(x => /graphify/.test(x)), `expected graphify for: ${p}`);
+  }
+});
+
+test('done-claim prompts → verification-before-completion reminder', () => {
+  for (const p of [
+    'is it done?',
+    'are we done here',
+    'ship it',
+    'it works now, ready to commit',
+  ]) {
+    const r = capabilityReminders(p);
+    assert.ok(r.some(x => /verification-before-completion/.test(x)), `expected done-check for: ${p}`);
+  }
+});
+
+test('new rules - unrelated prompts still return [] (low noise)', () => {
+  assert.deepEqual(capabilityReminders('show me the session list'), []);
+  assert.deepEqual(capabilityReminders('what is the current branch'), []);
+});

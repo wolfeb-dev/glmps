@@ -3,6 +3,7 @@ import { getState, learningAction } from './api.js';
 import { invocationFor } from './copy-strings.js';
 import { toolAccentHex, makeToolIcon, badgeText } from './grid.js';
 import { renderAnsi } from './ansi.js';
+import { renderDiff } from './diff-view.js';
 import { extractSessionContent, toMarkdown, toJson, triggerDownload } from './export.js';
 
 // Convert a "#rrggbb" hex string to "rgba(r,g,b,alpha)" — computed color strings only, no user data.
@@ -139,7 +140,7 @@ function fillDiffPopup(popup, change, labelBasename, handlers, filePath) {
       editBtn.title = 'Open in editor';
       setText(editBtn, '✎');
       editBtn.addEventListener('click', () => {
-        handlers.onOpenFile(filePath);
+        handlers.onOpenFile(filePath, change);
         hideDiffPopup();
       });
       hdr.appendChild(editBtn);
@@ -148,35 +149,7 @@ function fillDiffPopup(popup, change, labelBasename, handlers, filePath) {
     popup.appendChild(hdr);
   }
 
-  if (change.old) {
-    const oldEl = document.createElement('div');
-    oldEl.className = 'diff-old';
-    // Prefix each line with '- ', then render any terminal escapes via renderAnsi
-    // (XSS-safe: text -> textContent, styling from a fixed palette — no innerHTML with data).
-    const lines = change.old.text.split('\n').map(l => '- ' + l).join('\n');
-    oldEl.appendChild(renderAnsi(lines));
-    popup.appendChild(oldEl);
-    if (change.old.truncated) {
-      const note = document.createElement('div');
-      note.className = 'diff-truncated';
-      setText(note, '… truncated');
-      popup.appendChild(note);
-    }
-  }
-
-  if (change.new) {
-    const newEl = document.createElement('div');
-    newEl.className = 'diff-new';
-    const lines = change.new.text.split('\n').map(l => '+ ' + l).join('\n');
-    newEl.appendChild(renderAnsi(lines));
-    popup.appendChild(newEl);
-    if (change.new.truncated) {
-      const note = document.createElement('div');
-      note.className = 'diff-truncated';
-      setText(note, '… truncated');
-      popup.appendChild(note);
-    }
-  }
+  popup.appendChild(renderDiff(change));
 }
 
 function makeEventRow(ev, handlers, dimmed) {
@@ -544,6 +517,11 @@ function buildUnusedPanel(usage, handlers) {
     const pills = document.createElement('div');
     pills.className = 'unused-pills';
 
+    // Names that appear more than once in this group (e.g. a skill shipped by
+    // two different plugins) get a plugin sub-label so they don't read as dupes.
+    const nameCounts = new Map();
+    for (const it of g.items) nameCounts.set(it.name, (nameCounts.get(it.name) ?? 0) + 1);
+
     // Sort applicable items before dimmed ones (for memory/contextFiles that carry applicable flag)
     const sortedItems = [...g.items].sort((a, b) => {
       const aApp = a.applicable !== false;
@@ -563,11 +541,15 @@ function buildUnusedPanel(usage, handlers) {
       setText(nameSpan, item.name);
       pill.appendChild(nameSpan);
 
-      // Location sub-label for memory/contextFiles
-      if (item.location != null && item.location !== '') {
+      // Location sub-label for memory/contextFiles; for a name shared by two
+      // plugins, fall back to the plugin name to disambiguate the pills.
+      const subLabel = (item.location != null && item.location !== '')
+        ? item.location
+        : (nameCounts.get(item.name) > 1 && item.plugin ? item.plugin : '');
+      if (subLabel) {
         const locSpan = document.createElement('span');
         locSpan.className = 'pill-loc';
-        setText(locSpan, item.location);
+        setText(locSpan, subLabel);
         pill.appendChild(locSpan);
       }
 
@@ -799,6 +781,40 @@ export async function renderDetail(sessionId, container, handlers, summary, opts
   // Guiding context (files + skills) becomes the banner's second row — no label.
   const guidingRow = buildGuidingBar(data.guiding ?? [], data.events, handlers, data.skillsUsed ?? []);
   banner.appendChild(guidingRow);
+
+  // Zones → Map link: one quiet line showing which zones the session touched.
+  // data.scope.zones is [{zone, env, count}] from sessionScope(); zone names are server-computed,
+  // not user input — but we still use textContent (XSS discipline).
+  const sessionScope = data.scope;
+  if (sessionScope?.zones?.length) {
+    const zonesLine = document.createElement('div');
+    zonesLine.className = 'detail-zones-link';
+    const label = document.createElement('span');
+    label.className = 'detail-zones-label';
+    setText(label, 'zones: ');
+    zonesLine.appendChild(label);
+    sessionScope.zones.forEach((z, i) => {
+      if (i > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'detail-zones-sep';
+        setText(sep, ' · ');
+        zonesLine.appendChild(sep);
+      }
+      const zn = document.createElement('span');
+      zn.className = 'detail-zones-name';
+      setText(zn, z.zone);
+      zonesLine.appendChild(zn);
+    });
+    if (handlers?.onOpenMap) {
+      const arrow = document.createElement('span');
+      arrow.className = 'detail-zones-arrow';
+      setText(arrow, ' →');
+      zonesLine.appendChild(arrow);
+      zonesLine.style.cursor = 'pointer';
+      zonesLine.addEventListener('click', () => handlers.onOpenMap(sessionId));
+    }
+    banner.appendChild(zonesLine);
+  }
 
   // ── Two-column layout ──────────────────────────
   const cols = document.createElement('div');

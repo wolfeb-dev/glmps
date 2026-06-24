@@ -161,6 +161,48 @@ export function donutArcs(parts, opts = {}) {
   return out;
 }
 
+// Estimate the tokens graphify saves on codebase orientation, from the
+// /api/graph/status node counts. The premise (see CLAUDE.md): a graphify query
+// returns a compact scoped subgraph instead of reading raw source, so for every
+// indexed node the cost drops from ~a chunk of source to ~one graph line.
+//
+// input: an array of { nodes } graph-status rows, OR the raw payload { graphs: [...] }.
+// opts:
+//   tokensPerSourceNode  — est. tokens of raw source one node represents (default 90,
+//                          a node ~= a function/section; conservative — many are larger)
+//   tokensPerGraphNode   — est. tokens of a node's compact graph line, e.g.
+//                          "NODE name [src=… loc=… community=…]" (default 12)
+// -> { graphs, nodes, rawTokens, graphTokens, savedTokens, ratio }
+//    where savedTokens = max(0, rawTokens - graphTokens) and ratio = savedTokens/rawTokens.
+//    Savings are clamped at >= 0 so a (mis)configuration can never report negatives.
+export function graphifySavings(graphs, opts = {}) {
+  const rows = Array.isArray(graphs)
+    ? graphs
+    : (graphs && Array.isArray(graphs.graphs) ? graphs.graphs : []);
+
+  const perSource = Number(opts.tokensPerSourceNode);
+  const perGraph = Number(opts.tokensPerGraphNode);
+  const tokensPerSourceNode = Number.isFinite(perSource) && perSource > 0 ? perSource : 90;
+  const tokensPerGraphNode = Number.isFinite(perGraph) && perGraph >= 0 ? perGraph : 12;
+
+  let count = 0;
+  let nodes = 0;
+  for (const g of rows) {
+    const n = Number(g?.nodes);
+    if (Number.isFinite(n) && n > 0) {
+      count += 1;
+      nodes += n;
+    }
+  }
+
+  const rawTokens = nodes * tokensPerSourceNode;
+  const graphTokens = nodes * tokensPerGraphNode;
+  const savedTokens = Math.max(0, rawTokens - graphTokens);
+  const ratio = rawTokens > 0 ? savedTokens / rawTokens : 0;
+
+  return { graphs: count, nodes, rawTokens, graphTokens, savedTokens, ratio };
+}
+
 // Assign a heat level 0..4 to each heatmap day based on its count, using 4 thresholds
 // derived from the max count (quartiles). 0 = no activity.
 // -> [{ date, count, level }] preserving input order.

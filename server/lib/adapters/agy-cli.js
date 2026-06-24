@@ -16,7 +16,6 @@ let DatabaseSync = null;
 try { ({ DatabaseSync } = require_('node:sqlite')); } catch {}
 
 const TOOL_NAME_RE = /^[a-z][a-z0-9_]{2,40}$/;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const URL_RE = /^(https?:\/\/|file:\/\/|git@|ssh:\/\/)/;
 const CONTEXT_FILE_RE = /(^|[\\/])(CLAUDE|AGENTS|GEMINI)\.md$/i;
 const MEMORY_RE = /[\\/]memory[\\/][^\\/]+\.md$/i;

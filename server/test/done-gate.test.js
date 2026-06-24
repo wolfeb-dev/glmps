@@ -1,7 +1,8 @@
 // Tests for the Stop-hook done-gate pure decision functions.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseAcceptance, decideDoneGate } from '../../hooks/done-gate.js';
+import path from 'node:path';
+import { parseAcceptance, decideDoneGate, parsePorcelain } from '../../hooks/done-gate.js';
 
 // --- parseAcceptance: frontmatter command extraction ---
 
@@ -91,4 +92,29 @@ test('decide: stop_hook_active false resets count before deciding', () => {
     runResult: { ok: false, failedCommand: 'npm test', tail: 'X' } });
   assert.equal(d.action, 'block');
   assert.equal(d.nextBlockCount, 1); // count reset to 0 first, then +1
+});
+
+// --- parsePorcelain: git status --porcelain text -> absolute paths ---
+
+const CWD = process.platform === 'win32' ? 'D:\\repo' : '/repo';
+
+test('parsePorcelain: normal modified and untracked files', () => {
+  const result = parsePorcelain(' M web/app.js\n?? new.txt', CWD);
+  assert.deepEqual(result, [path.join(CWD, 'web/app.js'), path.join(CWD, 'new.txt')]);
+});
+
+test('parsePorcelain: rename - takes destination (lastIndexOf)', () => {
+  const result = parsePorcelain('R  old.js -> new.js', CWD);
+  assert.equal(result.length, 1);
+  assert.ok(result[0].endsWith(path.join(CWD, 'new.js').slice(-6)));
+  assert.deepEqual(result, [path.join(CWD, 'new.js')]);
+});
+
+test('parsePorcelain: quoted path with spaces - quotes stripped', () => {
+  const result = parsePorcelain('?? "a b.js"', CWD);
+  assert.deepEqual(result, [path.join(CWD, 'a b.js')]);
+});
+
+test('parsePorcelain: empty input -> []', () => {
+  assert.deepEqual(parsePorcelain('', CWD), []);
 });

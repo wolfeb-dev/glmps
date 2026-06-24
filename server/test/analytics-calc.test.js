@@ -10,6 +10,7 @@ import {
   groupByProject,
   donutArcs,
   heatBuckets,
+  graphifySavings,
 } from '../../web/analytics-calc.js';
 
 // ── cwdLastSeg ──────────────────────────────────────
@@ -172,4 +173,55 @@ test('heatBuckets is all-zero level when there is no activity', () => {
 test('heatBuckets handles empty/invalid input', () => {
   assert.deepEqual(heatBuckets([]), []);
   assert.deepEqual(heatBuckets(null), []);
+});
+
+// ── graphifySavings ─────────────────────────────────
+test('graphifySavings estimates tokens saved across graphs with defaults', () => {
+  // defaults: tokensPerSourceNode=90, tokensPerGraphNode=12
+  const s = graphifySavings([{ nodes: 1000 }, { nodes: 500 }]);
+  assert.equal(s.graphs, 2);
+  assert.equal(s.nodes, 1500);
+  assert.equal(s.rawTokens, 1500 * 90);     // 135000
+  assert.equal(s.graphTokens, 1500 * 12);   // 18000
+  assert.equal(s.savedTokens, 135000 - 18000); // 117000
+  assert.ok(Math.abs(s.ratio - 13 / 15) < 1e-9); // 117000/135000
+});
+
+test('graphifySavings accepts the /api/graph/status payload shape', () => {
+  const s = graphifySavings({ graphs: [{ project: 'a', nodes: 200 }] });
+  assert.equal(s.graphs, 1);
+  assert.equal(s.nodes, 200);
+  assert.equal(s.savedTokens, 200 * (90 - 12));
+});
+
+test('graphifySavings returns zeros for empty/invalid input', () => {
+  for (const v of [[], null, undefined, {}, 42, { graphs: null }]) {
+    const s = graphifySavings(v);
+    assert.equal(s.graphs, 0);
+    assert.equal(s.nodes, 0);
+    assert.equal(s.rawTokens, 0);
+    assert.equal(s.graphTokens, 0);
+    assert.equal(s.savedTokens, 0);
+    assert.equal(s.ratio, 0);
+  }
+});
+
+test('graphifySavings ignores zero/negative/invalid node counts', () => {
+  const s = graphifySavings([{ nodes: 100 }, { nodes: 0 }, { nodes: -5 }, { nodes: 'x' }, {}]);
+  assert.equal(s.graphs, 1);   // only the nodes:100 graph counts
+  assert.equal(s.nodes, 100);
+});
+
+test('graphifySavings honors custom per-node token overrides', () => {
+  const s = graphifySavings([{ nodes: 10 }], { tokensPerSourceNode: 200, tokensPerGraphNode: 20 });
+  assert.equal(s.rawTokens, 2000);
+  assert.equal(s.graphTokens, 200);
+  assert.equal(s.savedTokens, 1800);
+});
+
+test('graphifySavings never reports negative savings', () => {
+  // graph representation costs more than the source it indexes -> clamp to 0
+  const s = graphifySavings([{ nodes: 10 }], { tokensPerSourceNode: 10, tokensPerGraphNode: 12 });
+  assert.equal(s.savedTokens, 0);
+  assert.equal(s.ratio, 0);
 });

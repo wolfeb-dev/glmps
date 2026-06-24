@@ -201,4 +201,15 @@ export function renderRail(state, handlers, selectedId) {
   }
 }
 
+// The id of the session the rail shows at the top (live first, then most recent),
+// excluding cloud-only remote entries. Used to default the Detail selection.
+export function mostRecentSessionId(state) {
+  const all = [...(state?.sessions ?? [])].sort((a, b) => {
+    if (a.live !== b.live) return a.live ? -1 : 1;
+    return (b.lastTs ?? 0) - (a.lastTs ?? 0);
+  });
+  const visible = [...all.filter(s => s.live), ...all.filter(s => !s.live && s.format !== 'remote')];
+  return visible[0]?.id ?? null;
+}
+
 export { TOOL_COLOR, toolAccentHex, toolColorClass, makeToolIcon, badgeText };

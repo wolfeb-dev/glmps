@@ -31,7 +31,7 @@
 }
 
 .lrn-header-title {
-  font-size: 14px;
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--fg);
   letter-spacing: 0.01em;
@@ -49,7 +49,7 @@
   background: rgba(224,162,58,.15);
   border: 1px solid rgba(224,162,58,.4);
   color: var(--amber);
-  font-size: 11px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1;
@@ -113,7 +113,7 @@
 }
 
 .lrn-toggle-text {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--muted-fg);
 }
 
@@ -128,7 +128,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-family: inherit;
   padding: 4px var(--sp-2);
   width: 220px;
@@ -156,7 +156,7 @@
 }
 
 .lrn-section-label {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -164,7 +164,7 @@
 }
 
 .lrn-section-count {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--muted-fg);
   opacity: 0.65;
@@ -194,7 +194,7 @@ details[open] .lrn-discarded-summary { opacity: 0.7; }
 }
 .lrn-section-head-inline::before {
   content: '\25B8 ';
-  font-size: 9px;
+  font-size: var(--fs-micro);
   color: var(--muted-fg);
   margin-right: 4px;
   align-self: center;
@@ -258,7 +258,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 }
 
 .lrn-card-title {
-  font-size: 13px;
+  font-size: var(--fs-base);
   font-weight: 500;
   color: var(--fg);
   flex: 1;
@@ -270,7 +270,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 
 /* Recurrence badge — gold mono pill */
 .lrn-recurrence-badge {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-weight: 600;
   color: var(--gold);
@@ -284,7 +284,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 
 /* Dispatched / failed status note */
 .lrn-status-note {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   color: var(--muted-fg);
   font-style: italic;
   flex-shrink: 0;
@@ -293,7 +293,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 /* ── Chips — source/severity ─────────────────────── */
 /* Base inherits .chip from styles.css */
 .lrn-chip {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -327,7 +327,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 
 /* ── Card body ───────────────────────────────────── */
 .lrn-card-body {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--fg);
   opacity: 0.85;
   line-height: 1.5;
@@ -343,7 +343,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 }
 
 .lrn-card-project {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--muted-fg);
   background: rgba(138,146,156,.08);
@@ -358,7 +358,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 
 /* Failed error message */
 .lrn-card-error {
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--red);
   background: rgba(224,86,86,.07);
   border: 1px solid rgba(224,86,86,.25);
@@ -374,7 +374,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 }
 
 .lrn-guard-label {
-  font-size: 9px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -385,7 +385,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 .lrn-guard-rule {
   display: block;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--fg);
   background: var(--muted);
   border: 1px solid var(--border);
@@ -415,7 +415,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
   border-radius: 6px;
   color: var(--fg);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--fs-small);
   line-height: 1.5;
   padding: var(--sp-1) var(--sp-2);
   resize: vertical;
@@ -448,7 +448,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
   color: var(--fg);
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--fs-small);
   padding: 3px 10px;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
   white-space: nowrap;
@@ -485,7 +485,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
   background: rgba(74,140,216,.10);
   border-color: rgba(74,140,216,.3);
   padding: 4px var(--sp-2);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 .lrn-btn-idea:hover { background: rgba(74,140,216,.18); border-color: rgba(74,140,216,.5); }
 
@@ -511,7 +511,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 /* ── Applied commit sha ───────────────────────────── */
 .lrn-commit-sha {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   color: var(--green);
   background: rgba(63,184,127,.08);
   border: 1px solid rgba(63,184,127,.2);
@@ -522,7 +522,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 
 /* ── Empty state ─────────────────────────────────── */
 .lrn-empty {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--muted-fg);
   font-style: italic;
   padding: var(--sp-2) var(--sp-1);
@@ -533,7 +533,7 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 .gap-msg { flex: 1 1 auto; }
 .gap-actions { display: inline-flex; gap: 6px; align-items: center; flex: 0 0 auto; }
 .gap-act {
-  font: inherit; font-size: 11px; line-height: 1.4;
+  font: inherit; font-size: var(--fs-micro); line-height: 1.4;
   padding: 2px 9px; border-radius: 5px;
   border: 1px solid var(--border); background: var(--muted); color: var(--fg);
   cursor: pointer;
@@ -544,12 +544,38 @@ details[open] .lrn-section-head-inline::before { content: '\25BE '; }
 .gap-act-discard { color: var(--muted-fg); }
 .gap-act-promote { color: var(--gold); }
 .gap-state {
-  font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+  font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.1em;
   padding: 1px 7px; border-radius: 4px; background: var(--muted);
 }
 .gap-state-applied { color: var(--green); }
 .gap-state-discarded { color: var(--muted-fg); }
 .gap-state-dispatched { color: var(--amber); }
 .gap-state-failed { color: var(--red); }
+
+/* Learning nav dot — shown on the Learning tab when items await review */
+.learning-nav-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 5px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 5px rgba(224,162,58,.7);
+  vertical-align: middle;
+  animation: learning-dot-pulse 1.8s ease-in-out infinite;
+}
+@keyframes learning-dot-pulse {
+  0%,100% {
+    opacity: 1;
+    transform: scale(1.3);
+    box-shadow: 0 0 8px 2px rgba(224,162,58,.8);
+  }
+  50% {
+    opacity: .45;
+    transform: scale(1);
+    box-shadow: 0 0 3px rgba(224,162,58,.3);
+  }
+}
+@media (prefers-reduced-motion: reduce) { .learning-nav-dot { animation: none; } }
 
 /* === end learning loop === */

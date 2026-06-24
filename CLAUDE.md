@@ -30,3 +30,13 @@ If you notice (or the user points out) that a capability should have been used a
 - **XSS discipline (non-negotiable):** all user/file-derived data (paths, labels, diffs, commit messages) goes through `textContent` / `createElement`. Never `innerHTML` with data; `innerHTML = ''` to clear is the only allowed use.
 - **Design system:** the house palette/aesthetic is realized in `web/styles.css` (the house design tokens). Spacing uses the `--sp-1..4` scale. Do UI work via the `frontend-design` skill.
 - Tests are isolated via env-overridable paths (`GLMPS_*` env vars in `server/lib/paths.js`); never read the user's real `~/.claude` / `~/.gemini` in tests.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

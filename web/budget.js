@@ -221,15 +221,4 @@ export function renderUsage(container, data) {
   container.appendChild(root);
 }
 
-// ── Convenience: fetch + render in one shot ───────────────────
-export async function fetchAndRenderUsage(container) {
-  let data;
-  try {
-    data = await fetchBudget();
-  } catch {
-    // Render unavailable state on error
-    data = { available: false };
-  }
-  renderUsage(container, data);
-  return data;
-}
+// (fetchAndRenderUsage removed: analytics fetches budget itself and calls renderUsage)

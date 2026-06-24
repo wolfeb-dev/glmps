@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { scanInventory } from '../lib/inventory.js';
+import { scanInventory, dedupeInventory } from '../lib/inventory.js';
 
 const tmpDirs = [];
 process.on('exit', () => { for (const d of tmpDirs) { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} } });
@@ -109,6 +109,93 @@ test('scanInventory finds user-level and project-level Claude agents and skills'
   // every item still carries a string description and a path
   assert.ok(inv.agents.every(a => typeof a.description === 'string' && a.path));
   assert.ok(inv.skills.every(s => typeof s.description === 'string' && s.path));
+});
+
+test('scanInventory collapses stale cached plugin versions, keeping the newest', () => {
+  const tmp = mkTmp();
+  for (const ver of ['5.1.0', '6.0.3']) {
+    const d = path.join(tmp, 'cache', 'mp', 'superpowers', ver, 'skills', 'brainstorming');
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'SKILL.md'),
+      `---\nname: brainstorming\ndescription: v${ver}\n---\n`);
+  }
+  const inv = scanInventory({
+    pluginsCacheDir: path.join(tmp, 'cache'),
+    projectsDir: path.join(tmp, 'noproj'), projectRoots: [], claudeDir: path.join(tmp, 'noclaude'),
+  });
+  const brainstorming = inv.skills.filter(s => s.name === 'brainstorming');
+  assert.equal(brainstorming.length, 1, 'two cached versions of one skill should collapse to one');
+  assert.ok(brainstorming[0].path.includes('6.0.3'), 'the newest version should be kept');
+});
+
+test('scanInventory collapses stale cached agent versions, keeping the newest', () => {
+  const tmp = mkTmp();
+  for (const ver of ['1.0.0', '2.0.0']) {
+    const d = path.join(tmp, 'cache', 'mp', 'myplug', ver, 'agents');
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'foo.md'), `---\nname: foo\ndescription: v${ver}\n---\n`);
+  }
+  const inv = scanInventory({
+    pluginsCacheDir: path.join(tmp, 'cache'),
+    projectsDir: path.join(tmp, 'noproj'), projectRoots: [], claudeDir: path.join(tmp, 'noclaude'),
+  });
+  const foo = inv.agents.filter(a => a.name === 'foo');
+  assert.equal(foo.length, 1, 'two cached versions of one agent should collapse to one');
+  assert.ok(foo[0].path.includes('2.0.0'), 'the newest version should be kept');
+});
+
+test('scanInventory keeps same-named skills from different plugins distinct', () => {
+  const tmp = mkTmp();
+  for (const plug of ['earnings-reviewer', 'equity-research']) {
+    const d = path.join(tmp, 'cache', 'mp', plug, '0.1.0', 'skills', 'earnings-analysis');
+    fs.mkdirSync(d, { recursive: true });
+    fs.writeFileSync(path.join(d, 'SKILL.md'),
+      `---\nname: earnings-analysis\ndescription: from ${plug}\n---\n`);
+  }
+  const inv = scanInventory({
+    pluginsCacheDir: path.join(tmp, 'cache'),
+    projectsDir: path.join(tmp, 'noproj'), projectRoots: [], claudeDir: path.join(tmp, 'noclaude'),
+  });
+  const ea = inv.skills.filter(s => s.name === 'earnings-analysis');
+  assert.equal(ea.length, 2, 'same name from two different plugins are distinct skills, not dupes');
+  assert.deepEqual(ea.map(s => s.plugin).sort(), ['earnings-reviewer', 'equity-research']);
+});
+
+test('dedupeInventory collapses items that resolve to the same physical file', () => {
+  const tmp = mkTmp();
+  // one real skill, reached via two different scan roots (symlink farm / overlapping roots)
+  const src = path.join(tmp, 'assets', 'skills', 'foo');
+  fs.mkdirSync(src, { recursive: true });
+  fs.writeFileSync(path.join(src, 'SKILL.md'), '---\nname: foo\ndescription: real\n---\n');
+  const linkDir = path.join(tmp, 'mirror', 'skills');
+  fs.mkdirSync(linkDir, { recursive: true });
+  fs.symlinkSync(src, path.join(linkDir, 'foo'), 'junction');
+
+  const realFile = path.join(src, 'SKILL.md');
+  const linkFile = path.join(linkDir, 'foo', 'SKILL.md');
+  const inv = {
+    skills: [
+      { name: 'foo', description: 'real', plugin: 'user', path: realFile },
+      { name: 'foo', description: 'real', plugin: 'project', path: linkFile },
+    ], agents: [], memory: [], contextFiles: [],
+  };
+  const out = dedupeInventory(inv);
+  assert.equal(out.skills.length, 1, 'two paths to the same physical SKILL.md should collapse to one');
+});
+
+test('dedupeInventory is a no-op for already-distinct inventories', () => {
+  const inv = {
+    skills: [{ name: 'a', plugin: 'p', path: 'Z:\\a\\SKILL.md' },
+             { name: 'b', plugin: 'p', path: 'Z:\\b\\SKILL.md' }],
+    agents: [{ name: 'x', plugin: 'q', path: 'Z:\\x.md' }],
+    memory: [{ name: 'm.md', project: 'D--', path: 'Z:\\m.md' }],
+    contextFiles: [{ name: 'CLAUDE.md', root: 'Z:\\', path: 'Z:\\CLAUDE.md' }],
+  };
+  const out = dedupeInventory(inv);
+  assert.equal(out.skills.length, 2);
+  assert.equal(out.agents.length, 1);
+  assert.equal(out.memory.length, 1);
+  assert.equal(out.contextFiles.length, 1);
 });
 
 test('scanInventory follows symlinked user skill dirs (asset-boundary deploy)', () => {

@@ -88,7 +88,6 @@ export function mapToolName(name) {
   }
 }
 
-const READ_TOOLS = new Set(['Read', 'Glob', 'Grep']);
 const FILE_EDIT_TOOLS = new Set(['Write', 'Edit']);
 
 /** Pull a file path out of a toolCall args object. */

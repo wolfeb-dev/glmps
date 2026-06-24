@@ -2,6 +2,17 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
+import { DEFAULT_ZONE_CONFIG } from './zones.js';
+import { fileURLToPath } from 'node:url';
+
+// The glmps-assets repo is a sibling of this code repo. Derive the
+// default from THIS module's location (server/lib/paths.js) so the server
+// resolves the assets dir regardless of how it was launched (e.g. a
+// companion-spawned process without GLMPS_ASSETS_DIR in its env). GLMPS_ASSETS_DIR
+// still overrides. Previously this defaulted to ~/glmps-assets,
+// which does not exist, so learning Approve/Promote hit ENOENT.
+const _repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const DEFAULT_ASSETS_DIR = path.join(path.dirname(_repoRoot), 'glmps-assets');
 
 export function getPaths(env = process.env) {
   const home = os.homedir();
@@ -61,14 +72,29 @@ export function getPaths(env = process.env) {
     statusDir: path.join(stateDir, 'status'),
     requestsFile: path.join(stateDir, 'requests', 'resume.jsonl'),
     undoDir: path.join(stateDir, 'undo'),
+    worktreesDir: env.GLMPS_WORKTREES_DIR ?? path.join(stateDir, 'runner', 'worktrees'),
     doneGateDir: env.GLMPS_DONE_GATE_DIR ?? path.join(stateDir, 'done-gate'),
     agyCliDir,
     opencodeDir,
     codexDir,
     clineStorageDir,
     hermesDir,
-    assetsDir: env.GLMPS_ASSETS_DIR ?? path.join(home, 'glmps-assets'),
+    assetsDir: env.GLMPS_ASSETS_DIR ?? DEFAULT_ASSETS_DIR,
+    agentsDir: env.GLMPS_AGENTS_DIR ?? path.join(env.GLMPS_ASSETS_DIR ?? DEFAULT_ASSETS_DIR, 'agents'),
+    zoneConfig: (() => {
+      if (!env.GLMPS_ZONE_CONFIG) return DEFAULT_ZONE_CONFIG;
+      try { return JSON.parse(env.GLMPS_ZONE_CONFIG); } catch { return DEFAULT_ZONE_CONFIG; }
+    })(),
   };
+}
+
+export function graphPathFor(projectRoot) {
+  if (!projectRoot) return null;
+  for (const rel of ['graphify-out/graph.json', 'server/graphify-out/graph.json']) {
+    const f = path.join(projectRoot, rel);
+    try { if (fs.existsSync(f)) return f; } catch {}
+  }
+  return null;
 }
 
 export function ensureStateDirs(p) {

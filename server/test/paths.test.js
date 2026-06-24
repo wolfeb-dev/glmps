@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { getPaths, ensureStateDirs } from '../lib/paths.js';
 
 const tmpDirs = [];
@@ -41,9 +42,17 @@ test('assetsDir honors GLMPS_ASSETS_DIR override', () => {
   assert.equal(P.assetsDir, '/tmp/custom-assets');
 });
 
-test('assetsDir defaults under home', () => {
-  const P = getPaths({}); // no GLMPS_ASSETS_DIR
-  assert.equal(P.assetsDir, path.join(os.homedir(), 'glmps-assets'));
+test('assetsDir defaults to the sibling glmps-assets repo (launch-env independent)', () => {
+  const P = getPaths({}); // no GLMPS_ASSETS_DIR — must NOT fall back to the home dir
+  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const expected = path.join(path.dirname(repoRoot), 'glmps-assets');
+  assert.equal(P.assetsDir, expected);
+  assert.equal(P.agentsDir, path.join(expected, 'agents'));
+});
+
+test('agentsDir honors GLMPS_AGENTS_DIR override', () => {
+  const P = getPaths({ GLMPS_AGENTS_DIR: '/tmp/custom-agents' });
+  assert.equal(P.agentsDir, '/tmp/custom-agents');
 });
 
 test('doneGateDir honors GLMPS_DONE_GATE_DIR override', () => {

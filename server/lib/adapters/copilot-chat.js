@@ -1,7 +1,6 @@
 // server/lib/adapters/copilot-chat.js
 import fs from 'node:fs';
 import path from 'node:path';
-import url from 'node:url';
 import { cleanTitle } from './clean-title.js';
 
 export const id = 'copilot-chat';

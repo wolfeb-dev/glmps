@@ -33,7 +33,7 @@
 
 /* ── USAGE heading ───────────────────────────────────── */
 .usage-heading {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -52,7 +52,7 @@
 }
 
 .usage-plan-chip {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   color: var(--amber);
@@ -67,27 +67,27 @@
 .usage-meta-sep {
   color: var(--muted-fg);
   opacity: 0.4;
-  font-size: 11px;
+  font-size: var(--fs-micro);
   flex-shrink: 0;
 }
 
 .usage-meta-model {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--muted-fg);
   white-space: nowrap;
 }
 
 .usage-meta-ctx {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--muted-fg);
   white-space: nowrap;
 }
 
 .usage-meta-cost {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--primary);
   font-weight: 600;
   white-space: nowrap;
@@ -116,7 +116,7 @@
 }
 
 .usage-bar-label {
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 500;
   color: var(--fg);
   flex: 1;
@@ -125,7 +125,7 @@
 
 .usage-bar-pct {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--fs-small);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -167,7 +167,7 @@
 /* Reset countdown below bar */
 .usage-bar-reset {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   color: var(--muted-fg);
   opacity: 0.7;
 }
@@ -184,7 +184,7 @@
 }
 
 .usage-manage-link {
-  font-size: 11px;
+  font-size: var(--fs-micro);
   color: var(--info);
   text-decoration: none;
   opacity: 0.85;
@@ -194,7 +194,7 @@
 
 .usage-updated-ts {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 10px;
+  font-size: var(--fs-micro);
   color: var(--muted-fg);
   opacity: 0.45;
 }
@@ -207,7 +207,7 @@
 }
 
 .usage-flag-chip {
-  font-size: 10px;
+  font-size: var(--fs-micro);
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -239,7 +239,7 @@
 
 /* ── Not-available state ──────────────────────────────── */
 .usage-unavailable {
-  font-size: 12px;
+  font-size: var(--fs-small);
   color: var(--muted-fg);
   font-style: italic;
   padding: var(--sp-1) 0;
@@ -257,7 +257,7 @@
   background: rgba(138,146,156,.12);
   border: 1px solid rgba(138,146,156,.3);
   color: var(--muted-fg);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   font-weight: 700;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1;
@@ -277,8 +277,5 @@
   background: rgba(224,162,58,.13);
   border-color: rgba(224,162,58,.4);
 }
-
-/* Keep old bgt-* names as aliases so nothing else breaks */
-.bgt-nav-badge { display: none; }
 
 /* === end usage panel === */

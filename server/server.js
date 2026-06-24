@@ -4,8 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import url from 'node:url';
-import { execFile, spawn } from 'node:child_process';
-import { getPaths, ensureStateDirs } from './lib/paths.js';
+import { execFile, execFileSync, spawn } from 'node:child_process';
+import { getPaths, ensureStateDirs, graphPathFor } from './lib/paths.js';
+import { computeGraphStatus } from './lib/graph-status.js';
+import { sessionScope } from './lib/zones.js';
+import { loadGraph } from './lib/code-graph.js';
 import { readNewLines } from './lib/tailer.js';
 import { extractClaudeEvents } from './lib/extract-claude.js';
 import { extractAgEvents } from './lib/extract-antigravity.js';
@@ -21,7 +24,13 @@ import { computeGuiding } from './lib/guiding.js';
 import { annotateUnused } from './lib/asset-scope.js';
 import { detectGaps } from './lib/gap-detect.js';
 import { doneGateEvents } from './lib/done-gate-feed.js';
+import { scanFleet } from './lib/agent-fleet.js';
+import { loopStage } from './lib/loop-stage.js';
 import * as learningStore from './lib/learning-store.js';
+import * as backlogStore from './lib/backlog-store.js';
+import * as runnerStore from './lib/runner-store.js';
+import { TARGET_IDS, resolveTarget, launchTargetFor, seededCommand, nativeTerminalRecipe, companionRecord, procNamesFor } from './lib/editor-targets.js';
+import { pickNextJob, shouldClaim, reconcileLedger, shouldIsolate, worktreePlan, worktreeAddRecipe, worktreeRemoveRecipe, worktreePruneRecipe } from './lib/queue-runner.js';
 import { applyGuard, enqueueIdeaApply, buildIdeaApplyCommand, buildMemoryApplyCommand, ingestResults } from './lib/learning-apply.js';
 import { buildTerminalRequest } from './lib/terminal-request.js';
 import { readUsage, appendSnapshot } from './lib/usage-store.js';
@@ -29,9 +38,43 @@ import { readBudget } from './lib/budget.js';
 import { pickTitle, cleanFirstPrompt } from './lib/session-title.js';
 
 const WEB_DIR = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..', 'web');
+const REPO_ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
+
+// Resolve the graphify binary's full path once, so a rebuild can spawn it
+// WITHOUT a shell and DETACHED. `windowsHide` only hides the direct child
+// (cmd.exe); graphify's ~24 AST worker subprocesses each pop a console window.
+// Spawning the resolved exe with detached:true gives DETACHED_PROCESS, which
+// propagates "no console" through the whole worker tree (the same trick the
+// graphify git hook uses). Falls back to a shelled `graphify` if unresolved.
+let _graphifyBin = null, _graphifyResolved = false;
+function resolveGraphifyBin() {
+  if (_graphifyResolved) return _graphifyBin;
+  _graphifyResolved = true;
+  try {
+    const finder = process.platform === 'win32' ? 'where' : 'which';
+    const out = execFileSync(finder, ['graphify'], { encoding: 'utf-8' });
+    const first = out.split(/\r?\n/).map(s => s.trim()).filter(Boolean)[0];
+    if (first) _graphifyBin = first;
+  } catch {}
+  return _graphifyBin;
+}
 const PKG = readJsonSafe(path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..', 'package.json')) ?? {};
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
 const MAX_BODY = 5 * 1024 * 1024; // editor payload cap
+
+const branchCache = new Map(); // root -> { value, ts }
+function branchFor(root) {
+  const hit = branchCache.get(root);
+  if (hit && (Date.now() - hit.ts) < 15000) return Promise.resolve(hit.value);
+  return new Promise(res => {
+    execFile('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], (e, out) => {
+      const value = e ? null : out.trim();
+      branchCache.set(root, { value, ts: Date.now() });
+      res(value);
+    });
+  });
+}
+function normRoot(p) { return p ? String(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() : ''; }
 
 function resolveIcons() {
   const home = os.homedir();
@@ -99,7 +142,7 @@ export function normalizeStatus(raw) {
 export async function startServer({ port, pollMs = 1000, env = process.env, configFile, restartFn } = {}) {
   const cfg = Object.assign({
     port: 8123, workingThresholdMs: 10000, idleThresholdMs: 60000,
-    inventoryScanMs: 60000, agCheckMs: 5000, searchResultCap: 200, backfillBytes: 2 * 1024 * 1024,
+    inventoryScanMs: 60000, agCheckMs: 5000, runnerTickMs: 5000, searchResultCap: 200, backfillBytes: 2 * 1024 * 1024,
     antigravityCommand: null, openInEditorArgs: ['-g', '{path}'], editableRoots: [],
     terminals: [
       { label: 'Claude', command: 'claude', icon: 'claude' },
@@ -113,10 +156,20 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
   const P = getPaths(env);
   ensureStateDirs(P);
   const index = new IndexStore(P.indexFile);
-  const fileApi = new FileApi([P.claudeDir, ...P.antigravityDirs, ...cfg.editableRoots, ...(configFile ? [configFile] : [])], P.undoDir);
+  // Project roots the dashboard / map / navigator surface files from must be
+  // openable in the in-app editor. This is a localhost tool over the user's own
+  // repos, so allow REPO_ROOT + the synced additionalDirectories (the same repo
+  // set the navigator lists), on top of the configured editableRoots.
+  const _projectRoots = [REPO_ROOT];
+  try {
+    const dirs = JSON.parse(fs.readFileSync(P.settingsFile, 'utf-8'))?.permissions?.additionalDirectories;
+    if (Array.isArray(dirs)) _projectRoots.push(...dirs.filter((d) => typeof d === 'string'));
+  } catch {}
+  const fileApi = new FileApi([P.claudeDir, ...P.antigravityDirs, ...cfg.editableRoots, ..._projectRoots, ...(configFile ? [configFile] : [])], P.undoDir);
   const offsets = readJsonSafe(P.offsetsFile) ?? {};      // { key: {offset, carry} }
   const eventLog = new Map();                              // sessionId -> events[] (ring, cap 2000)
   const clients = new Set();                               // SSE responses
+  const buildId = String(Date.now());                     // per-process id; lets the UI detect a restart and reload
   let sessions = [];                                       // last discovery result
   let inventory = { skills: [], agents: [], memory: [], contextFiles: [] };
   let agAlive = false;
@@ -187,6 +240,11 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
     eventLog.set(sessionId, log);
     index.applyEvents(sessionId, logEvents);
     const payload = `data: ${JSON.stringify({ type: 'events', sessionId, events: logEvents })}\n\n`;
+    for (const res of clients) res.write(payload);
+  }
+
+  function broadcastBacklog() {
+    const payload = `data: ${JSON.stringify({ type: 'backlog' })}\n\n`;
     for (const res of clients) res.write(payload);
   }
 
@@ -398,6 +456,8 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
     try { result = adapter.extractSnapshot(text, desc.id); } catch { return; }
 
     const { events = [], title, cwd } = result;
+    // Apply meta events (cwd, model, etc.) so they land on the index record.
+    applyMetaEvents(desc.id, events.filter(e => e.kind === 'meta'));
     // Replace event log entirely (even when empty, to clear stale events from a previous parse)
     if (eventLog.has(desc.id) || events.length > 0) {
       eventLog.set(desc.id, events.slice(-2000));
@@ -580,6 +640,7 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           skillsUsed: rec.skillsUsed ?? [], status: null,
           recentContext: [],
           counts: { skills: 0, memory: 0, agents: 0, contextFiles: 0, mcp: 0, git: 0 },
+          loop: null,
         };
       }
 
@@ -663,6 +724,10 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
         recentContext: events.filter(e => e.lane === 'context').slice(-3),
         counts,
         gapCount: detectGaps(events, rec.skillsUsed ?? []).length,
+        loop: alive ? loopStage(events) : null,
+        scope: alive ? sessionScope(
+          events.filter(e => e.kind === 'file-edit').map(e => e.path),
+          { projectRoot: rec.cwd ?? cwd ?? null, config: P.zoneConfig }) : null,
       };
     });
   }
@@ -723,8 +788,9 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           }
           if (lqDirty) learningStore.save(P.stateDir, lq);   // only write when something changed (no per-poll churn)
           // Enrich gaps with their queue item id + status for the actionable callout.
-          // INVARIANT: this key must match upsertGapInto's — both sha1(code|project)
-          // with project = (sessionCwd ?? ''). Keep the two computations in lockstep.
+          // INVARIANT: this key must match upsertGapInto's. Both run `project` through
+          // normalizeProject() inside learning-store.js, so passing the raw sessionCwd
+          // here stays in lockstep with the upsert above (raw cwd -> canonical slug).
           const gaps = rawGaps.map(g => {
             const key = learningStore.dedupKey({ source: 'gap', code: g.code, project: sessionCwd ?? '' });
             const it = lq.items.find(i => i.id === key);
@@ -735,7 +801,11 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           let dgEvents = [];
           try { dgEvents = doneGateEvents(fs.readFileSync(path.join(P.doneGateDir, `${sid}.jsonl`), 'utf8'), sid); } catch {}
           const feedLog = dgEvents.length ? [...log, ...dgEvents].sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0)) : log;
-          return send(200, { events: feedLog, contextNow: contextNow(feedLog), usage, guiding, skillsUsed, gaps });
+          const loop = loopStage(feedLog, guiding, gaps);
+          const scope = sessionScope(
+            feedLog.filter(e => e.kind === 'file-edit').map(e => e.path),
+            { projectRoot: sessionCwd, config: P.zoneConfig });
+          return send(200, { events: feedLog, contextNow: contextNow(feedLog), usage, guiding, skillsUsed, gaps, loop, scope });
         }
         const allEvents = [...eventLog.values()].flat();
         const toolDetection = detectAll(P);
@@ -746,6 +816,35 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
         return send(200, { sessions: sessionSummaries(), inventory,
           usage: splitUsage(inventory, allEvents),
           history: index.list({}), tools });
+      }
+
+      // ── Code graph ──────────────────────────────────────────
+      if (u.pathname === '/api/graph') {
+        const project = u.searchParams.get('project')
+          || sessions.find(s => s.id === u.searchParams.get('session'))?.cwd
+          || null;
+        const gp = graphPathFor(project);
+        let headCommit = null;
+        if (project) {
+          try { headCommit = await new Promise(res =>
+            execFile('git', ['rev-parse', 'HEAD'], { cwd: project }, (e, out) => res(e ? null : out.trim()))); } catch {}
+        }
+        const graph = gp ? loadGraph(gp, { config: P.zoneConfig, headCommit }) : null;
+        const graphRoot = gp ? path.dirname(path.dirname(gp)).replace(/\\/g, '/') : null;
+        return send(200, { project, graph, graphRoot, zoneConfig: P.zoneConfig });
+      }
+      // ── Agent fleet (dashboard Section A) ───────────────────
+      if (u.pathname === '/api/agents') {
+        const fleet = scanFleet({ agentsDir: P.agentsDir, pluginsCacheDir: P.pluginsCacheDir });
+        // dispatchCount: count kind:'agent' events naming each agent, across all sessions
+        const counts = {};
+        for (const ev of [...eventLog.values()].flat()) {
+          if (ev.kind !== 'agent') continue;
+          const nm = (ev.label ?? ev.tool ?? '').split(':')[0].trim().toLowerCase();
+          if (nm) counts[nm] = (counts[nm] ?? 0) + 1;
+        }
+        const agents = fleet.agents.map(a => ({ ...a, dispatchCount: counts[(a.name ?? '').toLowerCase()] ?? 0 }));
+        return send(200, { agents });
       }
       if (u.pathname === '/api/usage') {
         return send(200, readUsage(P.stateDir));
@@ -760,6 +859,9 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       if (u.pathname === '/api/events') {
         res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
         res.write(':ok\n\n');
+        // Send the build id on connect. EventSource auto-reconnects after a restart,
+        // so the client compares this against the first one it saw and reloads on change.
+        res.write(`data: ${JSON.stringify({ type: 'hello', buildId })}\n\n`);
         clients.add(res);
         req.on('close', () => clients.delete(res));
         return;
@@ -803,7 +905,7 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       }
       if (u.pathname === '/api/config') {
         const projectRoots = [...new Set(index.list({}).map(r => r.cwd).filter(Boolean))];
-        return send(200, { terminals: cfg.terminals, projectRoots,
+        return send(200, { terminals: cfg.terminals, projectRoots, repoRoot: REPO_ROOT,
           configPath: configFile ?? null, version: PKG.version ?? null, port: actualPort });
       }
       if (u.pathname === '/api/restart' && req.method === 'POST') {
@@ -938,11 +1040,278 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
         return send(200, r.item);
       }
 
+      // ── Graph status / rebuild (Settings panel) ──────────────
+      // Helper: collect all candidate repo roots from settings additionalDirectories
+      // + known session CWDs + this server's own repo root.
+      function collectGraphRoots() {
+        // Dedup by a normalized key (forward slashes, no trailing slash,
+        // lowercased for case-insensitive Windows paths) but keep the first
+        // original spelling. Otherwise D:/x, d:/x and D:/x/ list the same repo 3x.
+        const seen = new Map();
+        const add = (p) => {
+          if (!p) return;
+          const root = String(p).replace(/\\/g, '/').replace(/\/+$/, '');
+          const key = root.toLowerCase();
+          if (!seen.has(key)) seen.set(key, root);
+        };
+        add(REPO_ROOT);
+        for (const r of index.list({})) add(r.cwd);          // known session CWDs
+        try {                                                 // additionalDirectories
+          const settings = JSON.parse(fs.readFileSync(P.settingsFile, 'utf-8'));
+          const dirs = settings?.permissions?.additionalDirectories;
+          if (Array.isArray(dirs)) dirs.forEach(add);
+        } catch {}
+        return [...seen.values()];
+      }
+
+      // Helper: build a graph status object for one root (fails soft -> null).
+      async function graphStatusForRoot(root) {
+        const gp = graphPathFor(root);
+        if (!gp) return null;
+        let nodes = 0, builtAtCommit = null, mtimeMs = null;
+        try {
+          const raw = JSON.parse(fs.readFileSync(gp, 'utf-8'));
+          nodes = Array.isArray(raw.nodes) ? raw.nodes.length : 0;
+          builtAtCommit = raw.built_at_commit ?? null;
+        } catch {}
+        try { mtimeMs = fs.statSync(gp).mtimeMs; } catch {}
+        let headCommit = null;
+        try {
+          headCommit = await new Promise(res =>
+            execFile('git', ['-C', root, 'rev-parse', 'HEAD'], (e, out) => res(e ? null : out.trim())));
+        } catch {}
+        const project = path.basename(root);
+        return computeGraphStatus({ project, root, nodes, builtAtCommit, headCommit, mtimeMs });
+      }
+
+      // Sort: glmps first, then alpha.
+      function sortGraphs(graphs) {
+        return graphs.sort((a, b) => {
+          const aIsMC = a.project === 'glmps' ? 0 : 1;
+          const bIsMC = b.project === 'glmps' ? 0 : 1;
+          if (aIsMC !== bIsMC) return aIsMC - bIsMC;
+          return a.project.localeCompare(b.project);
+        });
+      }
+
+      if (u.pathname === '/api/graph/status' && req.method === 'GET') {
+        try {
+          const roots = collectGraphRoots();
+          const results = await Promise.all(roots.map(graphStatusForRoot));
+          const graphs = sortGraphs(results.filter(Boolean));
+          return send(200, { graphs });
+        } catch { return send(200, { graphs: [] }); }
+      }
+
+      if (u.pathname === '/api/graph/rebuild' && req.method === 'POST') {
+        try {
+          const body = JSON.parse((await readBody(req)) || '{}');
+          let targets;
+          if (body.root) {
+            targets = [String(body.root)];
+          } else {
+            // Build current status to determine stale graphs
+            const roots = collectGraphRoots();
+            const statuses = (await Promise.all(roots.map(graphStatusForRoot))).filter(Boolean);
+            const stale = statuses.filter(s => s.needsUpdate);
+            targets = (stale.length ? stale : statuses).map(s => s.root);
+          }
+          // Run graphify update for each target sequentially, fail-soft per repo.
+          for (const root of targets) {
+            await new Promise(res => {
+              const bin = resolveGraphifyBin();
+              // detached:true => DETACHED_PROCESS, so graphify's worker subprocesses
+              // inherit "no console" and don't pop up windows. stdio:'ignore' keeps
+              // no console handles. We still await close (no unref).
+              const child = bin
+                ? spawn(bin, ['update', root], { detached: true, windowsHide: true, stdio: 'ignore', timeout: 120000 })
+                : spawn('graphify', ['update', root], { shell: true, windowsHide: true, stdio: 'ignore', timeout: 120000 });
+              child.on('close', () => res());
+              child.on('error', () => res());
+            });
+          }
+          // Return fresh status
+          const roots = collectGraphRoots();
+          const results = await Promise.all(roots.map(graphStatusForRoot));
+          const graphs = sortGraphs(results.filter(Boolean));
+          return send(200, { graphs });
+        } catch (e) { return send(500, { error: e.message }); }
+      }
+
+      // ── Projects summary ──────────────────────────────────────
+      if (u.pathname === '/api/projects' && req.method === 'GET') {
+        try {
+          // Only surface real repositories: this server's own root, plus any
+          // candidate root that is an actual git repo (.git dir or worktree file).
+          // Drops transient session cwds (UUID/temp dirs) that pollute the list.
+          const roots = collectGraphRoots().filter((root) => {
+            if (normRoot(root) === normRoot(REPO_ROOT)) return true;
+            try { return fs.existsSync(path.join(root, '.git')); } catch { return false; }
+          });
+          const sums = sessionSummaries();
+          const history = index.list({});
+          const projects = await Promise.all(roots.map(async (root) => {
+            const k = normRoot(root);
+            const hist = history.filter(r => normRoot(r.cwd) === k);
+            const live = sums.filter(s => normRoot(s.cwd) === k && s.live);
+            const lastTs = hist.reduce((m, r) => Math.max(m, r.lastTs || 0), 0) || null;
+            const gs = await graphStatusForRoot(root).catch(() => null);
+            const key = path.basename(root);
+            const open = backlogStore.listFrom(P.stateDir, { project: key })
+              .filter(i => i.state !== 'done' && i.state !== 'cancelled').length;
+            return {
+              name: key, key, path: root,
+              sessionCount: hist.length, liveCount: live.length, lastTs,
+              branch: await branchFor(root),
+              graph: gs ? { nodes: gs.nodes, needsUpdate: gs.needsUpdate } : { nodes: 0, needsUpdate: false },
+              backlogOpen: open,
+            };
+          }));
+          const sorted = projects.sort((a, b) => {
+            const aMC = a.key === 'glmps' ? 0 : 1, bMC = b.key === 'glmps' ? 0 : 1;
+            return aMC !== bMC ? aMC - bMC : a.key.localeCompare(b.key);
+          });
+          return send(200, { projects: sorted });
+        } catch { return send(200, { projects: [] }); }
+      }
+
+      // ── Learning status / synth (Settings panel) ──────────────
+      if (u.pathname === '/api/learning/status' && req.method === 'GET') {
+        try {
+          // Read watermark
+          let lastRunMs = null;
+          try {
+            const wmPath = path.join(P.stateDir, 'learning', 'synth-watermark.json');
+            const wm = JSON.parse(fs.readFileSync(wmPath, 'utf-8'));
+            if (typeof wm.lastRunMs === 'number') lastRunMs = wm.lastRunMs;
+          } catch {}
+          const st = learningStore.load(P.stateDir);
+          const pending = st.items.filter(i => i.status === 'pending').length;
+          return send(200, { lastRunMs, pending, total: st.items.length });
+        } catch (e) { return send(500, { error: e.message }); }
+      }
+
+      if (u.pathname === '/api/learning/synth' && req.method === 'POST') {
+        try {
+          const body = JSON.parse((await readBody(req)) || '{}');
+          const scriptPath = path.join(REPO_ROOT, 'scripts', 'capability-synth.mjs');
+          const args = ['days' in body && body.days != null
+            ? `--days ${Number(body.days)}`
+            : '--all'];
+          const { stdout, stderr, code } = await new Promise(res => {
+            let stdout = '', stderr = '';
+            const child = spawn(
+              'node',
+              [scriptPath, ...args[0].split(' ')],
+              { cwd: REPO_ROOT, shell: false, windowsHide: true, timeout: 180000 }
+            );
+            child.stdout?.on('data', d => { stdout += d; });
+            child.stderr?.on('data', d => { stderr += d; });
+            child.on('close', code => res({ stdout, stderr, code }));
+            child.on('error', err => res({ stdout, stderr: err.message, code: 1 }));
+          });
+          if (code !== 0) {
+            return send(200, { ok: false, scanned: null, upserted: null, message: (stderr || stdout).trim() });
+          }
+          // Parse "scanned X transcript(s), Y gap(s) upserted" from stdout
+          const all = stdout + '\n' + stderr;
+          const m = all.match(/scanned\s+(\d+)\s+transcript[^,]*,\s*(\d+)\s+gap/i);
+          const scanned = m ? Number(m[1]) : null;
+          const upserted = m ? Number(m[2]) : null;
+          return send(200, { ok: true, scanned, upserted, message: stdout.trim() });
+        } catch (e) { return send(500, { error: e.message }); }
+      }
+
+      if (u.pathname === '/api/backlog' && req.method === 'GET') {
+        const project = u.searchParams.get('project') ?? undefined;
+        const status = u.searchParams.get('status') ?? undefined;
+        return send(200, { items: backlogStore.listFrom(P.stateDir, { project, status }) });
+      }
+      if (u.pathname === '/api/backlog' && req.method === 'POST') {
+        let body;
+        try { body = JSON.parse((await readBody(req)) || '{}'); } catch { return send(400, { error: 'invalid json' }); }
+        if (!body.title || !String(body.title).trim()) return send(400, { error: 'empty title' });
+        const { item } = backlogStore.addItemTo(P.stateDir, {
+          project: body.project, title: String(body.title).trim(), prompt: body.prompt, state: body.state,
+        });
+        broadcastBacklog();
+        return send(201, item);
+      }
+      if (u.pathname === '/api/backlog/pause' && req.method === 'POST') {
+        let body;
+        try { body = JSON.parse((await readBody(req)) || '{}'); } catch { return send(400, { error: 'invalid json' }); }
+        const s = backlogStore.setPausedIn(P.stateDir, !!body.paused);
+        broadcastBacklog();
+        return send(200, { paused: s.paused });
+      }
+      if (u.pathname === '/api/backlog/reorder' && req.method === 'POST') {
+        let body; try { body = JSON.parse((await readBody(req)) || '{}'); } catch { return send(400, { error: 'invalid json' }); }
+        if (!Array.isArray(body.ids)) return send(400, { error: 'ids must be an array' });
+        const { items } = backlogStore.reorderItemsIn(P.stateDir, { ids: body.ids, status: body.status, project: body.project });
+        broadcastBacklog();
+        return send(200, { items });
+      }
+      const backlogMatch = u.pathname.match(/^\/api\/backlog\/([^/]+)$/);
+      if (backlogMatch && req.method === 'GET') {
+        const id = decodeURIComponent(backlogMatch[1]);
+        const item = backlogStore.load(P.stateDir).items.find(i => i.id === id);
+        if (!item) return send(404, { error: 'item not found' });
+        return send(200, item);
+      }
+      if (backlogMatch && req.method === 'PATCH') {
+        const id = decodeURIComponent(backlogMatch[1]);
+        let body;
+        try { body = JSON.parse((await readBody(req)) || '{}'); } catch { return send(400, { error: 'invalid json' }); }
+        const isLabelDelta = 'labels' in body || 'removeLabels' in body || 'comment' in body;
+        const r = isLabelDelta
+          ? backlogStore.applyLabelDeltaIn(P.stateDir, id, body)
+          : backlogStore.updateItemIn(P.stateDir, id, body);
+        if (!r.item) return send(404, { error: 'item not found' });
+        broadcastBacklog();
+        return send(200, r.item);
+      }
+      if (backlogMatch && req.method === 'DELETE') {
+        const id = decodeURIComponent(backlogMatch[1]);
+        const { removed } = backlogStore.removeItemIn(P.stateDir, id);
+        if (!removed) return send(404, { error: 'item not found' });
+        broadcastBacklog();
+        return send(200, { removed: true });
+      }
+      // ── Queue runner (launches queued cards as interactive sessions) ──
+      if (u.pathname === '/api/runner' && req.method === 'GET') {
+        return send(200, {
+          config: runnerStore.loadConfig(P.stateDir),
+          ledger: runnerStore.loadLedger(P.stateDir),
+          targets: TARGET_IDS,
+        });
+      }
+      if (u.pathname === '/api/runner/config' && req.method === 'POST') {
+        const body = JSON.parse((await readBody(req)) || '{}');
+        const allowed = ['enabled', 'maxConcurrent', 'maxRuntimeMs', 'maxRetries', 'lastTarget', 'useWorktrees'];
+        const patch = {};
+        for (const k of allowed) if (k in body) patch[k] = body[k];
+        return send(200, runnerStore.saveConfig(P.stateDir, patch));
+      }
+      const runMatch = u.pathname.match(/^\/api\/runner\/run\/([^/]+)$/);
+      if (runMatch && req.method === 'POST') {
+        const { status, body } = runJobNow(decodeURIComponent(runMatch[1]));
+        return send(status, body);
+      }
+
       // static files
       const file = path.join(WEB_DIR, u.pathname === '/' ? 'index.html' : u.pathname.slice(1));
       if (path.resolve(file).startsWith(path.resolve(WEB_DIR)) && fs.existsSync(file) && fs.statSync(file).isFile()) {
         res.writeHead(200, { 'content-type': MIME[path.extname(file)] ?? 'application/octet-stream' });
         return res.end(fs.readFileSync(file));
+      }
+      // SPA route fallback: GET with no file extension and not /api/* -> serve the
+      // app shell so client-side routes (/history, /detail/<id>, ...) load + refresh.
+      if (req.method === 'GET' && !u.pathname.startsWith('/api/') && !path.extname(u.pathname)) {
+        const indexFile = path.join(WEB_DIR, 'index.html');
+        if (fs.existsSync(indexFile)) {
+          res.writeHead(200, { 'content-type': 'text/html' });
+          return res.end(fs.readFileSync(indexFile));
+        }
       }
       send(404, { error: 'not found' });
     } catch (e) { send(500, { error: e.message }); }
@@ -991,15 +1360,191 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       projectRoots: [...new Set(index.list({}).map(r => r.cwd).filter(Boolean))] });
   };
   scanInv();
+  // ── Queue runner ───────────────────────────────────────────
+  // Claims the top queued card and launches an interactive, agent-self-reporting
+  // session seeded with the card's prompt (via a file the agent reads). Opt-in
+  // (config.enabled), honors board pause, reconciles dead/overrunning sessions.
+  const claudeCmd = (cfg.terminals.find(t => t.label === 'Claude')?.command) || 'claude';
+
+  function pidAlive(pid) {
+    if (!pid) return false;
+    try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
+  }
+
+  function detectEditors() {
+    const running = [];
+    if (agAlive) running.push('antigravity');
+    let names = '';
+    try {
+      names = process.platform === 'win32'
+        ? execFileSync('tasklist', { encoding: 'utf-8' }).toLowerCase()
+        : execFileSync('ps', ['-A', '-o', 'comm'], { encoding: 'utf-8' }).toLowerCase();
+    } catch { return running; }
+    for (const id of TARGET_IDS) {
+      if (id === 'native-terminal' || id === 'antigravity') continue;
+      if (procNamesFor(id).some(n => names.includes(n))) running.push(id);
+    }
+    return running;
+  }
+
+  function repoForProject(project) {
+    // Mirror the /api/projects root set (collectGraphRoots is request-scoped):
+    // REPO_ROOT + known session cwds + settings additionalDirectories, deduped,
+    // then keep only real git repos and match basename === project (the card key).
+    const seen = new Map();
+    const add = (p) => { if (!p) return; const root = String(p).replace(/\\/g, '/').replace(/\/+$/, ''); const k = root.toLowerCase(); if (!seen.has(k)) seen.set(k, root); };
+    add(REPO_ROOT);
+    for (const r of index.list({})) add(r.cwd);
+    try { const dirs = JSON.parse(fs.readFileSync(P.settingsFile, 'utf-8'))?.permissions?.additionalDirectories; if (Array.isArray(dirs)) dirs.forEach(add); } catch {}
+    const roots = [...seen.values()].filter(root => {
+      if (normRoot(root) === normRoot(REPO_ROOT)) return true;
+      try { return fs.existsSync(path.join(root, '.git')); } catch { return false; }
+    });
+    return roots.find(r => path.basename(r) === project) ?? null;
+  }
+
+  // Impure worktree edge: give a job its own git worktree so two same-project
+  // agents never share one checkout (cwd) and clobber each other's files.
+  // Returns { dir, branch } or null (git failed -> caller falls back to the
+  // shared repo cwd). Never throws — the runner must not crash on git hiccups.
+  function createWorktree({ repo, project, jobId }) {
+    const plan = worktreePlan({ baseDir: P.worktreesDir, project, jobId });
+    try {
+      fs.mkdirSync(path.dirname(plan.dir), { recursive: true });
+      const prune = worktreePruneRecipe({ repo });
+      try { execFileSync(prune.file, prune.args, { stdio: 'ignore' }); } catch {}
+      if (fs.existsSync(plan.dir)) { // leftover checkout from a crashed run
+        const rm = worktreeRemoveRecipe({ repo, dir: plan.dir });
+        try { execFileSync(rm.file, rm.args, { stdio: 'ignore' }); } catch {}
+      }
+      const add = worktreeAddRecipe({ repo, dir: plan.dir, branch: plan.branch });
+      execFileSync(add.file, add.args, { stdio: 'ignore' });
+      return plan;
+    } catch { return null; }
+  }
+
+  // Remove a finished job's worktree checkout once it leaves the live ledger.
+  // The branch is kept so any work the agent committed stays recoverable.
+  function removeWorktree(worktree) {
+    if (!worktree?.repo || !worktree?.dir) return;
+    const rm = worktreeRemoveRecipe({ repo: worktree.repo, dir: worktree.dir });
+    try { execFileSync(rm.file, rm.args, { stdio: 'ignore' }); } catch {}
+    const prune = worktreePruneRecipe({ repo: worktree.repo });
+    try { execFileSync(prune.file, prune.args, { stdio: 'ignore' }); } catch {}
+  }
+
+  function launchSession({ target, seeded, cwd }) {
+    if (env.GLMPS_RUNNER_DRYRUN) return process.pid; // tests: no real window, pid looks alive
+    if (target !== 'native-terminal') {
+      const rec = companionRecord({ targetId: target, seededCmd: seeded, cwd, now: Date.now() });
+      fs.appendFileSync(P.requestsFile, JSON.stringify(rec) + '\n');
+      if (!agAlive && cfg.antigravityCommand)
+        spawn(cfg.antigravityCommand, cwd ? [cwd] : [], { detached: true, stdio: 'ignore', shell: true, windowsHide: true }).unref();
+      return null; // editor owns the process; liveness tracked via card state + timeout
+    }
+    const recipe = nativeTerminalRecipe({ platform: process.platform, seededCmd: seeded, cwd: cwd ?? process.cwd() });
+    try { const child = spawn(recipe.file, recipe.args, recipe.options); child.unref(); return child.pid ?? null; }
+    catch { return null; }
+  }
+
+  // One card -> a launched session. Writes the prompt to a file (never on a
+  // command line) and opens it in the resolved editor target; the agent then
+  // self-reports the card to done. Returns { target, pid }.
+  function launchJob(job) {
+    const rc = runnerStore.loadConfig(P.stateDir);
+    const repo = repoForProject(job.project);
+    let cwd = repo;
+    // Isolate the job in a private worktree when concurrency makes a shared
+    // checkout unsafe (or the user forced it on). Falls back to the repo cwd if
+    // there is no repo or git could not create the worktree.
+    let worktree = null;
+    if (repo && shouldIsolate({ useWorktrees: rc.useWorktrees, maxConcurrent: rc.maxConcurrent })) {
+      const wt = createWorktree({ repo, project: job.project, jobId: job.id });
+      if (wt) { worktree = { ...wt, repo }; cwd = wt.dir; }
+    }
+    const running = env.GLMPS_RUNNER_DRYRUN ? [] : detectEditors();
+    const preferred = resolveTarget({ item: job, lastTarget: rc.lastTarget, running });
+    // Downgrade a companion-less editor target to native-terminal so the session
+    // actually opens (glmps-12); the ledger/label below then reflect the real target.
+    const target = launchTargetFor(preferred, { agAlive, antigravityCommand: cfg.antigravityCommand });
+    const header = [
+      `Backlog card ${job.id} (project: ${job.project}). You were launched by the GLMPS queue runner.`,
+      `When done, close the card: PATCH http://127.0.0.1:${actualPort}/api/backlog/${job.id} with {"labels":["agent:done"]} (use "agent:backlog" to requeue).`,
+      `Your task follows.`,
+    ].join('\n');
+    const promptFile = runnerStore.writePrompt(P.stateDir, job.id, `${header}\n\n${job.prompt ?? ''}`);
+    const seeded = seededCommand(claudeCmd, promptFile);
+    const pid = launchSession({ target, seeded, cwd });
+    backlogStore.applyLabelDeltaIn(P.stateDir, job.id, { labels: ['agent:in-progress'], comment: `runner: launched in ${target}${worktree ? ' (worktree)' : ''}` });
+    return { target, pid, worktree };
+  }
+
+  // Reconcile the live ledger against current cards (dead/overrunning -> requeue/held),
+  // persist it, and return fresh { rc, bl, ledger, hadActions }.
+  function reconcileNow() {
+    const rc = runnerStore.loadConfig(P.stateDir);
+    const before = runnerStore.loadLedger(P.stateDir);
+    const rec = reconcileLedger({
+      ledger: before, items: backlogStore.load(P.stateDir).items, isAlive: pidAlive,
+      now: Date.now(), maxRuntimeMs: rc.maxRuntimeMs, maxRetries: rc.maxRetries,
+    });
+    let ledger = rec.ledger;
+    // Any job that left the live ledger (done/held) gets its worktree reclaimed.
+    // Requeued jobs keep their entry, so their worktree is left in place.
+    for (const id of Object.keys(before)) if (!(id in ledger)) removeWorktree(before[id].worktree);
+    for (const a of rec.actions) {
+      if (a.action === 'requeue') backlogStore.applyLabelDeltaIn(P.stateDir, a.id, { labels: ['agent:backlog'], comment: `runner: requeued (${a.reason})` });
+      else backlogStore.updateItemIn(P.stateDir, a.id, { state: 'held' });
+    }
+    runnerStore.saveLedger(P.stateDir, ledger);
+    return { rc, bl: backlogStore.load(P.stateDir), ledger, hadActions: rec.actions.length > 0 };
+  }
+
+  function runnerTick() {
+    try {
+      const { rc, bl, ledger, hadActions } = reconcileNow();
+      const runningCount = Object.keys(ledger).length;
+      if (shouldClaim({ enabled: rc.enabled, paused: bl.paused, runningCount, maxConcurrent: rc.maxConcurrent })) {
+        const job = pickNextJob(bl.items);
+        if (job) {
+          const { target, pid, worktree } = launchJob(job);
+          ledger[job.id] = { pid: pid ?? null, startedAt: Date.now(), target, retries: ledger[job.id]?.retries ?? 0, worktree: worktree ?? null };
+          runnerStore.saveLedger(P.stateDir, ledger);
+          broadcastBacklog();
+          return;
+        }
+      }
+      if (hadActions) broadcastBacklog();
+    } catch { /* the runner must never crash the server */ }
+  }
+
+  // Manual "Run now": launch one specific card immediately, regardless of the
+  // Auto-run toggle or board pause, but still honoring maxConcurrent.
+  function runJobNow(id) {
+    const { rc, bl, ledger } = reconcileNow();
+    const job = bl.items.find(i => i.id === id);
+    if (!job) return { status: 404, body: { error: 'item not found' } };
+    if (ledger[id]) return { status: 409, body: { error: 'already running' } };
+    if (job.state === 'done' || job.state === 'cancelled') return { status: 409, body: { error: `card is ${job.state}` } };
+    if (Object.keys(ledger).length >= rc.maxConcurrent) return { status: 409, body: { error: 'runner at capacity — finish or wait for the running session' } };
+    const { target, pid, worktree } = launchJob(job);
+    ledger[id] = { pid: pid ?? null, startedAt: Date.now(), target, retries: 0, worktree: worktree ?? null };
+    runnerStore.saveLedger(P.stateDir, ledger);
+    broadcastBacklog();
+    return { status: 200, body: { id, target, state: 'in_progress' } };
+  }
+
   const pollTimer = setInterval(poll, pollMs);
   const agTimer = setInterval(checkAgAlive, cfg.agCheckMs);
   const invTimer = setInterval(scanInv, cfg.inventoryScanMs);
+  const runnerTimer = setInterval(runnerTick, cfg.runnerTickMs);
 
   console.log(`GLMPS: http://127.0.0.1:${actualPort}`);
   return {
     port: actualPort,
+    runnerTick, // exposed for deterministic tests
     close: async () => {
-      clearInterval(pollTimer); clearInterval(agTimer); clearInterval(invTimer);
+      clearInterval(pollTimer); clearInterval(agTimer); clearInterval(invTimer); clearInterval(runnerTimer);
       for (const c of clients) c.end();
       await new Promise(r => server.close(r));
     },
