@@ -1931,3 +1931,93 @@ button { font-family: inherit; font-size: inherit; }
   .set-graph-row,
   .set-action-btn { transition: none; }
 }
+
+/* ── Harness Quality (outcomes) panel ───────────────
+   Reuses .an-panel / .an-panel-title / .an-empty from the analytics system.
+   New classes here are additive only — no existing tokens overridden. */
+.hq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--sp-2);
+}
+
+/* Each task-class card sits one level inside the outer an-panel (--card bg),
+   so it uses --muted to create depth without introducing a new color. */
+.hq-card {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--sp-2) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.12s;
+}
+.hq-card:hover { border-color: #2f3640; }
+
+/* Class name header — capitalize only (not all-caps) so long names stay readable */
+.hq-card-title {
+  font-size: var(--fs-small);
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.03em;
+  color: var(--fg);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+/* Session count — mono, muted, the sample-size anchor for every metric below */
+.hq-card-n {
+  font-size: var(--fs-micro);
+  color: var(--muted-fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  padding-bottom: 2px;
+}
+.hq-card-n-num {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+/* Four metric rows stacked tightly */
+.hq-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hq-metric-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-1);
+  font-size: var(--fs-micro);
+}
+
+.hq-metric-label {
+  color: var(--muted-fg);
+  white-space: nowrap;
+}
+
+.hq-metric-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Intentional semantic color mapping (color is never the only indicator —
+   the label text always accompanies the value):
+   turns  → info    (blue,  neutral informational count)
+   verify → success (green, quality — high is good)
+   first  → primary (gold,  efficiency — the prime harness metric)
+   ctx    → warning (amber, resource cost — high = expensive sessions)
+   dash   → muted   (no data yet) */
+.hq-val-turns  { color: var(--info); }
+.hq-val-verify { color: var(--success); }
+.hq-val-first  { color: var(--primary); }
+.hq-val-ctx    { color: var(--warning); }
+.hq-val-dash   { color: var(--muted-fg); opacity: 0.45; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hq-card { transition: none; }
+}

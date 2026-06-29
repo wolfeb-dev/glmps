@@ -34,6 +34,9 @@ import { pickNextJob, shouldClaim, reconcileLedger, shouldIsolate, worktreePlan,
 import { applyGuard, enqueueIdeaApply, buildIdeaApplyCommand, buildMemoryApplyCommand, ingestResults } from './lib/learning-apply.js';
 import { buildTerminalRequest } from './lib/terminal-request.js';
 import { readUsage, appendSnapshot } from './lib/usage-store.js';
+import { readOutcomes } from './lib/outcome-store.js';
+import { summarizeOutcomes } from './lib/outcome-metrics.js';
+import { finalizeSession } from './lib/session-outcome.js';
 import { readBudget } from './lib/budget.js';
 import { pickTitle, cleanFirstPrompt } from './lib/session-title.js';
 
@@ -848,6 +851,29 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       }
       if (u.pathname === '/api/usage') {
         return send(200, readUsage(P.stateDir));
+      }
+      // Top-end self-improvement loop: per-session outcome records + per-task-class summary.
+      if (u.pathname === '/api/outcomes' && req.method === 'GET') {
+        const unit = u.searchParams.get('unit') || undefined;
+        const taskClass = u.searchParams.get('taskClass') || undefined;
+        return send(200, { outcomes: readOutcomes(P.stateDir, { unit, taskClass }) });
+      }
+      if (u.pathname === '/api/outcomes/summary' && req.method === 'GET') {
+        return send(200, summarizeOutcomes(readOutcomes(P.stateDir)));
+      }
+      // Finalize one session into an outcome row (idempotent). Driven on demand by a
+      // Stop feeder or manual trigger; pulls events from the in-memory log + latest usage.
+      if (u.pathname === '/api/outcomes/finalize' && req.method === 'POST') {
+        let body; try { body = JSON.parse((await readBody(req)) || '{}'); } catch { return send(400, { error: 'invalid json' }); }
+        const sid = body.session;
+        if (!sid) return send(400, { error: 'session required' });
+        const events = eventLog.get(sid) || [];
+        const usageRow = (readUsage(P.stateDir).perSession || []).find(s => s.sid === sid) || null;
+        const usage = usageRow ? { input: usageRow.input, output: usageRow.output, ctxUsedPct: usageRow.ctxUsedPct } : null;
+        const firstPrompt = (events.find(e => e.kind === 'prompt') || {}).label || '';
+        const filesTouched = [...new Set(events.filter(e => e.path).map(e => e.path))];
+        const { row, appended } = finalizeSession(P.stateDir, { sessionId: sid, events, usage, firstPrompt, filesTouched });
+        return send(200, { row, appended });
       }
       if (u.pathname === '/api/budget') {
         // Usage/quota meter: the real Claude.ai plan utilization (5h / weekly /

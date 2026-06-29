@@ -69,6 +69,7 @@ export function getPaths(env = process.env) {
     stateDir,
     offsetsFile: path.join(stateDir, 'state', 'offsets.json'),
     indexFile: path.join(stateDir, 'state', 'index.json'),
+    outcomesDir: env.GLMPS_OUTCOME_DIR ?? path.join(stateDir, 'outcomes'),
     statusDir: path.join(stateDir, 'status'),
     requestsFile: path.join(stateDir, 'requests', 'resume.jsonl'),
     undoDir: path.join(stateDir, 'undo'),

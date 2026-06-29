@@ -14,6 +14,7 @@ import {
 } from './analytics-calc.js';
 
 import { renderUsage } from './budget.js';
+import { renderOutcomes } from './outcomes.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -385,6 +386,11 @@ export async function renderAnalytics(container) {
   bottomRow.appendChild(buildRanked('Top projects', groupByProject(perSession), { barClass: 'an-rank-fill-blue', limit: 8 }));
   bottomRow.appendChild(buildRanked('By model', groupByModel(perSession), { barClass: 'an-rank-fill-gold', limit: 8 }));
   root.appendChild(bottomRow);
+
+  // 5) Harness Quality — one KPI card per task class from /api/outcomes/summary
+  const outcomesWrap = el('div');
+  root.appendChild(outcomesWrap);
+  await renderOutcomes(outcomesWrap);
 
   container.appendChild(root);
 }
