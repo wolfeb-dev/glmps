@@ -76,6 +76,21 @@ test('GET /api/graph includes graphRoot = parent of the loaded graphify-out dir'
   } finally { await srv.close(); }
 });
 
+test('POST /api/graph/rebuild rejects a root outside the graph allowlist', async () => {
+  const { env } = mkEnv();
+  const srv = await startServer({ port: 0, pollMs: 1000, env });
+  try {
+    const base = `http://127.0.0.1:${srv.port}`;
+    const res = await fetch(`${base}/api/graph/rebuild`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ root: 'x && calc.exe' }),
+    });
+    assert.equal(res.status, 400, 'attacker-controlled root must be rejected before any spawn');
+    const body = await res.json();
+    assert.match(body.error, /allowlist/i);
+  } finally { await srv.close(); }
+});
+
 test('session.scope is sessionScope over file-edit paths', () => {
   const scope = sessionScope(['D:\\mc\\web\\a.js'], { projectRoot: 'D:\\mc' });
   assert.equal(scope.allDev, true);

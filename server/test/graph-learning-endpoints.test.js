@@ -85,7 +85,7 @@ test('GET /api/graph/status includes graph info when graphify-out/graph.json exi
 
 // ── POST /api/graph/rebuild ───────────────────────────────────────────────────
 
-test('POST /api/graph/rebuild returns { graphs: [...] } (graphify may not be installed; soft fail ok)', async () => {
+test('POST /api/graph/rebuild rejects a root outside the allowlist with 400 (no shell injection)', async () => {
   const stateDir = tmp('mc-state-');
   const env = { ...process.env, GLMPS_STATE_DIR: stateDir };
   const h = await startServer({ port: 0, env, configFile: path.join(stateDir, 'no-config.json') });
@@ -95,12 +95,11 @@ test('POST /api/graph/rebuild returns { graphs: [...] } (graphify may not be ins
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ root: '/nonexistent/path' }),
     });
-    // Should not 500 hard — either 200 with graphs array or 200 empty
-    assert.ok(r.status === 200 || r.status === 500, `unexpected status ${r.status}`);
-    if (r.status === 200) {
-      const body = await r.json();
-      assert.ok('graphs' in body, 'response has graphs key');
-    }
+    // An explicit root is only honored if it is one the server already tracks;
+    // an unknown (or attacker-controlled) root is rejected before any spawn.
+    assert.equal(r.status, 400, `unexpected status ${r.status}`);
+    const body = await r.json();
+    assert.match(body.error, /allowlist/i);
   } finally {
     await h.close?.();
     fs.rmSync(stateDir, { recursive: true, force: true });

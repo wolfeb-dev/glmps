@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>GLMPS Documentation</title>
+<style>
+  :root {
+    --bg:#0a0d12; --fg:#e6e8eb; --card:#13171d; --muted:#1c2128; --muted-fg:#8a929c;
+    --border:#252a32; --primary:#d4a437; --success:#3fb87f; --warning:#e0a23a;
+    --destructive:#e05656; --info:#4a8cd8; --accent:#a878d8;
+    --sp-1:6px; --sp-2:10px; --sp-3:14px; --sp-4:20px;
+    --fs-micro:11px; --fs-small:12px; --fs-base:13px; --fs-md:15px; --fs-lg:18px; --fs-xl:24px;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sidebar-w:248px; --read:54rem;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:var(--fs-base);line-height:1.6}
+  a{color:var(--info);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,kbd{font-family:var(--mono);font-size:.92em}
+  :focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:3px}
+
+  .skip{position:absolute;left:-9999px;top:0;background:var(--primary);color:#11140b;padding:var(--sp-2) var(--sp-3);z-index:100;border-radius:6px}
+  .skip:focus{left:var(--sp-3);top:var(--sp-3)}
+
+  /* layout */
+  .wrap{display:grid;grid-template-columns:var(--sidebar-w) 1fr}
+  /* sidebar */
+  #side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    border-right:1px solid var(--border);background:var(--card);padding:var(--sp-4) 0}
+  .brand{display:flex;align-items:center;gap:9px;padding:0 var(--sp-4) var(--sp-4);
+    color:var(--primary);font-family:var(--mono);font-weight:700;font-size:var(--fs-md);
+    letter-spacing:.14em;text-transform:uppercase}
+  .brand svg{width:22px;height:22px;flex-shrink:0}
+  .brand-sweep{transform-origin:12px 12px;animation:radar 6s linear infinite}
+  @keyframes radar{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.brand-sweep{animation:none}}
+  #side nav{display:flex;flex-direction:column}
+  #side .grp{padding:var(--sp-3) var(--sp-4) var(--sp-1);font-size:var(--fs-micro);
+    text-transform:uppercase;letter-spacing:.08em;color:var(--muted-fg);font-weight:700}
+  #side a{display:block;padding:5px var(--sp-4);color:var(--muted-fg);font-size:var(--fs-small);
+    border-left:2px solid transparent}
+  #side a:hover{color:var(--fg);background:var(--muted);text-decoration:none}
+  #side a.active{color:var(--primary);border-left-color:var(--primary);background:rgba(212,164,55,.06)}
+
+  /* main */
+  main{padding:var(--sp-4) clamp(var(--sp-4),5vw,64px) 96px;max-width:calc(var(--read) + 8vw)}
+  .hero{border:1px solid var(--border);border-radius:12px;padding:var(--sp-4);margin-bottom:var(--sp-4);
+    background:radial-gradient(420px 200px at 0% 0%,rgba(212,164,55,.07),transparent 70%),var(--card)}
+  .hero h1{font-size:var(--fs-xl);letter-spacing:.01em;margin-bottom:var(--sp-2)}
+  .hero p{color:var(--muted-fg);font-size:var(--fs-md);max-width:60ch}
+  .tagline{display:inline-block;margin-top:var(--sp-3);font-family:var(--mono);font-size:var(--fs-micro);
+    color:var(--primary);border:1px solid var(--border);border-radius:999px;padding:3px 10px}
+
+  section{padding-top:var(--sp-4);scroll-margin-top:var(--sp-3)}
+  h2{font-size:var(--fs-lg);margin:var(--sp-4) 0 var(--sp-2);padding-bottom:var(--sp-1);
+    border-bottom:1px solid var(--border)}
+  h2 .num{color:var(--primary);font-family:var(--mono);font-size:var(--fs-small);margin-right:8px}
+  h3{font-size:var(--fs-md);margin:var(--sp-4) 0 var(--sp-2);color:var(--fg)}
+  h4{font-size:var(--fs-base);margin:var(--sp-3) 0 var(--sp-1);color:var(--primary);font-family:var(--mono);
+    text-transform:uppercase;letter-spacing:.04em;font-size:var(--fs-small)}
+  p,ul,ol{margin:var(--sp-2) 0;max-width:74ch}
+  ul,ol{padding-left:var(--sp-4)}
+  li{margin:4px 0}
+  p code,li code,td code{background:var(--muted);border:1px solid var(--border);border-radius:4px;
+    padding:1px 5px;color:#e8c98a}
+
+  pre{background:#0c0f14;border:1px solid var(--border);border-radius:8px;padding:var(--sp-3);
+    overflow-x:auto;margin:var(--sp-2) 0;font-family:var(--mono);font-size:var(--fs-small);line-height:1.55}
+  pre code{color:#cfd6de;background:none;border:none;padding:0}
+  .cmt{color:var(--muted-fg)}
+
+  table{border-collapse:collapse;width:100%;margin:var(--sp-2) 0;font-size:var(--fs-small)}
+  th,td{border:1px solid var(--border);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--muted);color:var(--fg);font-weight:600}
+  td{color:#c8cdd4}
+  tbody tr:nth-child(even){background:rgba(255,255,255,.012)}
+
+  .chip{display:inline-block;font-family:var(--mono);font-size:var(--fs-micro);padding:1px 7px;border-radius:999px;
+    border:1px solid var(--border);white-space:nowrap}
+  .chip.get{color:var(--success);border-color:rgba(63,184,127,.4);background:rgba(63,184,127,.08)}
+  .chip.post{color:var(--warning);border-color:rgba(224,162,58,.4);background:rgba(224,162,58,.08)}
+  .chip.put{color:var(--info);border-color:rgba(74,140,216,.4);background:rgba(74,140,216,.08)}
+  .chip.del{color:var(--destructive);border-color:rgba(224,86,86,.4);background:rgba(224,86,86,.08)}
+  .chip.req{color:var(--destructive)}.chip.opt{color:var(--muted-fg)}
+
+  .note{border:1px solid var(--border);border-left:3px solid var(--info);border-radius:6px;
+    padding:var(--sp-2) var(--sp-3);margin:var(--sp-3) 0;background:rgba(74,140,216,.05)}
+  .note.warn{border-left-color:var(--warning);background:rgba(224,162,58,.05)}
+  .note.good{border-left-color:var(--success);background:rgba(63,184,127,.05)}
+  .note strong{color:var(--fg)}
+
+  .flow{background:#0c0f14;border:1px solid var(--border);border-radius:8px;padding:var(--sp-3);
+    overflow-x:auto;font-family:var(--mono);font-size:var(--fs-small);line-height:1.5;color:#aeb6c0;white-space:pre}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--sp-2);margin:var(--sp-2) 0}
+  .ic{border:1px solid var(--border);border-radius:8px;padding:var(--sp-2) var(--sp-3);background:var(--card)}
+  .ic b{display:block;color:var(--primary);font-family:var(--mono);font-size:var(--fs-small);margin-bottom:2px}
+  .ic span{color:var(--muted-fg);font-size:var(--fs-small)}
+
+  footer{margin-top:48px;padding-top:var(--sp-3);border-top:1px solid var(--border);color:var(--muted-fg);font-size:var(--fs-micro)}
+
+  #navtoggle{display:none}
+  @media (max-width:880px){
+    .wrap{grid-template-columns:1fr}
+    #side{position:fixed;z-index:40;width:var(--sidebar-w);transform:translateX(-100%);
+      transition:transform .2s ease}
+    #side.open{transform:translateX(0)}
+    @media (prefers-reduced-motion:reduce){#side{transition:none}}
+    #navtoggle{display:inline-flex;align-items:center;gap:8px;position:fixed;z-index:45;top:12px;left:12px;
+      background:var(--card);border:1px solid var(--border);color:var(--fg);border-radius:8px;
+      padding:8px 12px;font-family:var(--mono);font-size:var(--fs-small);cursor:pointer;min-height:40px}
+    main{padding-top:60px}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#overview">Skip to content</a>
+<button id="navtoggle" aria-expanded="false" aria-controls="side">Menu</button>
+
+<div class="wrap">
+  <aside id="side">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6">
+        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/>
+        <line class="brand-sweep" x1="12" y1="12" x2="12" y2="3"/>
+        <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+      </svg>
+      GLMPS
+    </div>
+    <nav aria-label="Documentation sections">
+      <span class="grp">Start</span>
+      <a href="#overview">Overview</a>
+      <a href="#deployment">Deployment</a>
+      <a href="#usage">Using the dashboard</a>
+      <span class="grp">Architecture</span>
+      <a href="#capture">Capture &amp; the chassis</a>
+      <a href="#api">Dashboard &amp; API</a>
+      <a href="#loop">Self-improvement loop</a>
+      <a href="#safety">Safety &amp; governance</a>
+      <a href="#graphify">graphify integration</a>
+      <span class="grp">Whole system</span>
+      <a href="#cohesion">How it coheres</a>
+      <a href="#reference">Reference</a>
+    </nav>
+  </aside>
+
+  <main id="content">
+    <div class="hero">
+      <h1>GLMPS Documentation</h1>
+      <p>A local, per-session observability and self-improvement control plane for AI-agent harnesses. It watches every session, surfaces it live, and closes a loop that turns observed mistakes into guard rules.</p>
+      <span class="tagline">observe any harness &middot; act only on Claude Code &middot; zero runtime deps</span>
+    </div>
+
+    <!-- ───────────────────────── OVERVIEW ───────────────────────── -->
+    <section id="overview">
+      <h2><span class="num">01</span>Overview</h2>
+      <p>GLMPS (internally "GLMPS") tails the transcript and log files that AI coding agents write &mdash; Claude Code, Antigravity, Gemini CLI, Codex CLI, Cline, and others &mdash; classifies their raw output into a single shared event stream, and serves it in a real-time dashboard at <code>http://127.0.0.1:8123</code>.</p>
+      <p>Beyond passive observation it closes a feedback loop: when a session ends, a Stop hook re-parses the transcript, detects capability misuses (not reaching for a skill, running a backtest without validation, re-reading the same file in a loop), records those gaps, and can synthesize new <code>CLAUDE.md</code> guard rules from accumulated data. The observation plane is tool-agnostic; the control plane is scoped to the one harness that can be safely actuated.</p>
+
+      <h3>The mental model</h3>
+      <ul>
+        <li><strong>Observe any harness.</strong> Ten capture adapters (plus detect-only entries for five more) normalize every tool into one event shape.</li>
+        <li><strong>Act on Claude Code only.</strong> Resume, terminal launch, queue-runner execution, and guard application are gated on the one adapter marked <code>controllable</code>. Foreign harnesses are structurally observe-and-recommend.</li>
+        <li><strong>Logical, not physical, consolidation.</strong> GLMPS indexes across two planes &mdash; the user's repos and the agents' tool directories &mdash; wherever those files live. It never relocates them.</li>
+      </ul>
+
+      <h3>Design philosophy</h3>
+      <div class="cards">
+        <div class="ic"><b>Zero runtime deps</b><span><code>server/</code> and <code>web/</code> use only Node built-ins. Auditable, no supply-chain surface.</span></div>
+        <div class="ic"><b>No build step</b><span><code>web/</code> is served from disk per request &mdash; edits are live on refresh.</span></div>
+        <div class="ic"><b>Adapter-based</b><span>A new tool is one file in <code>adapters/</code>; the core loop is untouched.</span></div>
+        <div class="ic"><b>Capability-first</b><span>The project exists to catch its own misuse and prevent it over time.</span></div>
+        <div class="ic"><b>Dev/prod separation</b><span>Prod surfaces are never hand-edited; crossings go through a gate.</span></div>
+        <div class="ic"><b>TDD</b><span>Every <code>server/lib</code> change ships with <code>node:test</code> coverage.</span></div>
+      </div>
+
+      <h3>Repository map</h3>
+      <table>
+        <thead><tr><th>Directory</th><th>Responsibility</th></tr></thead>
+        <tbody>
+          <tr><td><code>server/</code></td><td>Zero-dep Node 18+ ESM HTTP + SSE server. Polls transcripts, drives adapters to extract events, keeps the IndexStore and event ring, serves all <code>/api/*</code> endpoints. Subsystem logic in <code>server/lib/</code>; one capture adapter per tool in <code>server/lib/adapters/</code>.</td></tr>
+          <tr><td><code>web/</code></td><td>Vanilla JS + CSS dashboard, no build step. Design tokens in <code>styles.css</code>; one module per view.</td></tr>
+          <tr><td><code>taps/</code></td><td>Statusline chain tap. Records per-turn model / context / cost, then delegates to the previous statusline command.</td></tr>
+          <tr><td><code>hooks/</code></td><td>Claude Code hook scripts: capability-reminder (UserPromptSubmit), capability-feed + capability-synth-tick + done-gate (Stop / SessionStart), live-install-guard (PreToolUse). Each hook is a thin I/O shell over a tested <code>server/lib</code> core.</td></tr>
+          <tr><td><code>companion/</code></td><td>Antigravity IDE extension: auto-starts the server, opens the dashboard, drains queued resume requests. Built with esbuild/vsce (dev-only deps).</td></tr>
+          <tr><td><code>scripts/</code></td><td>Setup + maintenance: <code>install.mjs</code> (wire tap + hook), <code>glmps-init.mjs</code> (discovery + profile), <code>export-public.mjs</code> (OSS mirror), asset/key migrations.</td></tr>
+          <tr><td><code>docs/</code></td><td>Architecture decision records and this documentation.</td></tr>
+          <tr><td><code>graphify-out/</code></td><td>Knowledge-graph artifacts (<code>graph.json</code>, <code>GRAPH_REPORT.md</code>, <code>wiki/</code>) built by <code>graphify update .</code> (AST-only, no API cost).</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ───────────────────────── DEPLOYMENT ───────────────────────── -->
+    <section id="deployment">
+      <h2><span class="num">02</span>Deployment</h2>
+
+      <h3>Prerequisites</h3>
+      <p>Declared in <code>server/lib/deps.js</code> and verified by <code>glmps init</code>.</p>
+      <table>
+        <thead><tr><th>Dependency</th><th>Required</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><code>node</code> &ge; 18</td><td><span class="chip req">required</span></td><td>Server runtime (<code>package.json</code> <code>engines.node</code>).</td></tr>
+          <tr><td><code>git</code></td><td><span class="chip req">required</span></td><td>Branch display, queue-runner worktrees, learning commits.</td></tr>
+          <tr><td><code>graphify</code></td><td><span class="chip opt">optional</span></td><td>Knowledge-graph rebuild/update. Degrades to a no-op if absent.</td></tr>
+          <tr><td><code>claude</code></td><td><span class="chip opt">optional</span></td><td>Queue-runner session launch and learning idea-apply.</td></tr>
+        </tbody>
+      </table>
+      <p>Missing a <em>required</em> dep makes <code>glmps init</code> exit with an error; a missing <em>optional</em> one prints a warning and continues with that feature disabled.</p>
+
+      <h3>Install</h3>
+      <pre><code><span class="cmt"># 1. Clone and enter the repo</span>
+git clone &lt;repo-url&gt; glmps
+cd glmps
+
+<span class="cmt"># 2a. Full setup: generate a per-client profile AND wire everything</span>
+node scripts/glmps-init.mjs --engagement &lt;name&gt; [--search &lt;dir&gt;] [--handle &lt;handle&gt;] [--force]
+
+<span class="cmt"># 2b. OR just wire the base installer (no profile)</span>
+npm run setup            <span class="cmt"># = node scripts/install.mjs</span>
+
+<span class="cmt"># 3. Start the dashboard</span>
+node server/server.js    <span class="cmt"># http://127.0.0.1:8123</span></code></pre>
+
+      <h4>What <code>npm run setup</code> does (install.mjs)</h4>
+      <ul>
+        <li><strong>A. config.json</strong> &mdash; copies <code>config.example.json</code> &rarr; <code>config.json</code> at the repo root if it does not already exist.</li>
+        <li><strong>B. Statusline tap</strong> &mdash; backs up <code>~/.claude/settings.json</code>, saves the previous <code>statusLine.command</code> to <code>~/.glmps/state/statusline-delegate.json</code>, and points the statusline at <code>taps/statusline-chain.js</code>. Idempotent.</li>
+        <li><strong>C. Capability-reminder hook</strong> &mdash; appends a <code>UserPromptSubmit</code> hook running <code>hooks/capability-reminder.js</code>. Idempotent.</li>
+      </ul>
+      <p><code>node scripts/install.mjs --uninstall</code> reverses B and C (restoring the prior statusline) and leaves <code>config.json</code> in place.</p>
+
+      <h4>What <code>glmps init</code> adds (glmps-init.mjs)</h4>
+      <ol>
+        <li>Runs <code>checkDeps()</code> &mdash; exits on a missing required dep, warns on optional.</li>
+        <li>Discovers installed harnesses (each adapter's <code>detect()</code>) and scans <code>--search</code> dirs (default <code>~</code>) up to depth 2 for <code>.git</code> repos.</li>
+        <li>Writes <code>glmps.profile.json</code> in the current directory (errors if it exists unless <code>--force</code>).</li>
+        <li>Calls the same A/B/C wiring as <code>npm run setup</code>.</li>
+      </ol>
+
+      <h3>config.json</h3>
+      <p>Loaded from the repo root at startup and merged over built-in defaults.</p>
+      <table>
+        <thead><tr><th>Key</th><th>Default</th><th>Controls</th></tr></thead>
+        <tbody>
+          <tr><td><code>port</code></td><td><code>8123</code></td><td>HTTP listen port.</td></tr>
+          <tr><td><code>antigravityCommand</code></td><td><code>null</code></td><td>Shell command to launch Antigravity (used by the terminal launcher).</td></tr>
+          <tr><td><code>openInEditorArgs</code></td><td><code>["-g","{path}"]</code></td><td>Args for the editor-open command; <code>{path}</code> is substituted.</td></tr>
+          <tr><td><code>editableRoots</code></td><td><code>[]</code></td><td>Extra roots the in-app file editor may write to.</td></tr>
+          <tr><td><code>workingThresholdMs</code></td><td><code>10000</code></td><td>Recent-activity window before a session reads as "working".</td></tr>
+          <tr><td><code>idleThresholdMs</code></td><td><code>60000</code></td><td>Inactivity before a session reads as "idle".</td></tr>
+          <tr><td><code>inventoryScanMs</code></td><td><code>60000</code></td><td>Interval between skill/inventory rescans.</td></tr>
+          <tr><td><code>searchResultCap</code></td><td><code>200</code></td><td>Max results from <code>/api/search</code>.</td></tr>
+          <tr><td><code>backfillBytes</code></td><td><code>2097152</code></td><td>Tail bytes backfilled when a session is first seen (2 MB).</td></tr>
+          <tr><td><code>backtestProjects</code></td><td><code>[]</code></td><td>Projects the backtest detector gates (triggers backtest-skeptic checks).</td></tr>
+          <tr><td><code>terminals</code></td><td>Claude/Gemini/Codex/Blank</td><td>Launcher buttons: <code>{label, command, icon}</code>.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>The engagement profile (glmps.profile.json)</h3>
+      <p>The portability layer that lets one checkout serve any client. <code>loadProfile()</code> looks in <code>GLMPS_PROFILE</code> (env path) first, then <code>glmps.profile.json</code> in the server's working directory. The result feeds <code>getPaths(env, profile)</code> with precedence <strong>env var &gt; profile &gt; built-in default</strong> &mdash; so <code>GLMPS_*</code> env vars always win (test isolation), the profile fills the middle, defaults are last.</p>
+      <table>
+        <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><code>engagement</code></td><td>Name; namespaces the per-engagement state dir.</td></tr>
+          <tr><td><code>identity</code></td><td><code>{handle, name, email}</code>.</td></tr>
+          <tr><td><code>stateDir</code></td><td>Per-engagement server state. Default <code>~/.glmps/&lt;engagement&gt;</code>.</td></tr>
+          <tr><td><code>assetsDir</code></td><td>The <code>glmps-assets</code> "brain" repo (skills/agents/memory). Sibling default.</td></tr>
+          <tr><td><code>repoRoots</code></td><td>Git repos the dashboard surfaces; the new concept that scopes an engagement. Auto-populated by <code>--search</code>.</td></tr>
+          <tr><td><code>tiers</code></td><td>Optional override of artifact/brain/ephemeral roots (otherwise derived).</td></tr>
+          <tr><td><code>mutationPolicy</code></td><td><code>{artifact:'gate', brain:'versioned', ephemeral:'readonly'}</code>.</td></tr>
+          <tr><td><code>harness</code></td><td>Per-tool data-dir overrides (<code>claudeDir</code>, <code>antigravityDir</code>, <code>codexDir</code>, ...); <code>null</code> = platform default.</td></tr>
+          <tr><td><code>editableRoots</code>, <code>terminals</code></td><td>Same as <code>config.json</code>, consolidated into the one file you hand a client.</td></tr>
+        </tbody>
+      </table>
+      <p><code>~</code> prefixes in any path field are expanded to the home directory.</p>
+
+      <h3>Running &amp; restart rules</h3>
+      <ul>
+        <li>Command: <code>node server/server.js</code> (or <code>npm start</code>). Binds <strong><code>127.0.0.1</code> only</strong> &mdash; localhost, never <code>0.0.0.0</code>.</li>
+        <li>Run it from the directory containing <code>glmps.profile.json</code> (or set <code>GLMPS_PROFILE</code>).</li>
+        <li><strong><code>web/</code> changes are live on browser refresh</strong> &mdash; no restart. Only <code>server/**</code> and <code>taps/**</code> changes need a restart (kill the PID on 8123, relaunch).</li>
+      </ul>
+      <div class="note warn"><strong>Localhost by design.</strong> The server has no authentication and exposes file/secret/launch endpoints, which is why it binds loopback only. Making it network-reachable is a separate, security-gated design (auth + TLS tunnel + endpoint hardening), not a one-line bind change.</div>
+
+      <h3>The statusline tap</h3>
+      <p>Claude Code pipes a JSON status blob to its statusline command on every tick. <code>taps/statusline-chain.js</code> writes <code>~/.glmps/status/&lt;sid&gt;.json</code> (the live status the server polls), appends an NDJSON usage record (model, cost, durations, tokens, cache, context %, cwd) to <code>~/.glmps/usage/&lt;date&gt;.ndjson</code>, then spawns the previous statusline command &mdash; so it composes with any existing tap.</p>
+
+      <h3>The companion (Antigravity extension)</h3>
+      <p>An unpublished VS Code extension targeting Antigravity. On startup it health-checks <code>127.0.0.1:&lt;port&gt;</code> and, if down and <code>missionControl.serverPath</code> is set, spawns <code>node server/server.js</code> (re-using Antigravity's Electron binary with <code>ELECTRON_RUN_AS_NODE=1</code>), re-probing every 30 s. It adds a status-bar open button and drains <code>~/.glmps/requests/resume.jsonl</code> &mdash; opening a terminal per request (<code>claude --resume &lt;id&gt;</code> for resumes). Build with <code>npm run build</code> (esbuild) and <code>npm run package</code> (vsce) inside <code>companion/</code>; those dev deps never reach the server.</p>
+    </section>
+
+    <!-- ───────────────────────── USAGE ───────────────────────── -->
+    <section id="usage">
+      <h2><span class="num">03</span>Using the dashboard</h2>
+      <p>Open <code>http://127.0.0.1:8123</code>. The top bar holds the brand, nav pills, and a terminal launcher. Each nav pill is a view:</p>
+      <table>
+        <thead><tr><th>View</th><th>Route</th><th>What it shows / does</th></tr></thead>
+        <tbody>
+          <tr><td>Dashboard</td><td><code>/</code></td><td>The agent fleet for the current project (one card per agent: access badge, model tier, dispatch count, role), a project navigator with live-session and open-backlog counts, and a focus bar tracking the active session's live tool call.</td></tr>
+          <tr><td>Sessions</td><td><code>/detail</code></td><td>Master-detail. Left rail rosters every session (live first), color-coded by tool with model + cost. Selecting a row opens an embedded detail pane: full event timeline, context-usage bar, scope-guard panel, capability callout, inline diffs, and export (Markdown / JSON / clipboard). Self-updates over SSE.</td></tr>
+          <tr><td>Map</td><td><code>/map</code></td><td>SVG code-knowledge graph (graphify) for the project: files as pill nodes grouped in directory zone boxes, prod zones in red, nodes touched by the selected session lit. "Rebuild graph" calls <code>/api/graph/rebuild</code>.</td></tr>
+          <tr><td>Kanban</td><td><code>/kanban</code></td><td>The backlog as swim lanes (Backlog &rarr; Queued &rarr; In Progress &rarr; In Review &rarr; Done). Drag cards between lanes; quarantined cards show a badge + Approve. A pause toggle controls the queue runner; a drawer gives detail, labels, and "Run now".</td></tr>
+          <tr><td>Learning</td><td><code>/learning</code></td><td>The capability-loop review queue: detected gaps and filed ideas, each with severity, recurrence badge, and a proposed guard rule. Per-card Approve / Promote / Alternative / Discard, plus an auto-apply toggle and a free-form idea box.</td></tr>
+          <tr><td>Analytics</td><td><code>/analytics</code></td><td>Plan-limiter bars, token/cost by model and project, a graphify-savings estimate, an hour-of-day heat map, and a Harness-Quality panel (per task-class: n, median turns, verifier pass rate, first-try rate, median context).</td></tr>
+          <tr><td>Engagement</td><td><code>/engagement</code></td><td>The three asset tiers (Artifact / Durable Brain / Ephemeral) for the current engagement, each listing its roots and mutation-policy chip.</td></tr>
+          <tr><td>History</td><td><code>/history</code></td><td>Searchable, filterable table of past sessions (project / tool / date / skill filters; full-text search). Rows open the full-page detail view; each has a Resume action.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Key workflows</h3>
+      <ul>
+        <li><strong>Watch a live session.</strong> Open Sessions; the roster auto-loads from <code>/api/state</code> and updates on each SSE <code>events</code> message (2 s debounce). Select a row; the detail pane streams new events in place.</li>
+        <li><strong>Search history.</strong> In History, pre-filter by project/tool/date, then full-text search (<code>/api/search</code>). Click a result to open <code>/session/&lt;id&gt;</code>.</li>
+        <li><strong>Resume a session.</strong> Click Resume on a History row; <code>/api/resume</code> writes a request and launches Antigravity at the session cwd; the companion opens it.</li>
+        <li><strong>File &amp; queue a card.</strong> Create on the board (or <code>POST /api/backlog</code>). It is poison-scanned at intake; clean items land in Backlog, flagged ones are quarantined pending <code>/api/backlog/:id/approve</code>. Drag to Queued; with the runner enabled the next tick launches it.</li>
+        <li><strong>Review a learning candidate.</strong> In Learning, read the body and proposed rule; Approve to write it into the project <code>CLAUDE.md</code>, Promote to lift it to global or a memory file, Alternative to edit the rule, Discard to close. Recurrence badges prioritize.</li>
+      </ul>
+    </section>
+
+    <!-- ───────────────────────── CAPTURE ───────────────────────── -->
+    <section id="capture">
+      <h2><span class="num">04</span>Capture &amp; the portability chassis</h2>
+      <p>The observe plane is a poll loop (default 1 s) over discovered session sources. It is deliberately mechanical: discover &rarr; tail &rarr; extract &rarr; index &rarr; stream.</p>
+      <div class="flow">  ~/.claude/projects/*.jsonl ┐
+  ~/.gemini/antigravity/...   ├─▶ discover()  ──▶  tail (byte offsets)  ──▶  extract()  ──┐
+  ~/.codex, ~/.local/... ┘      sessions.js        tailer.js              adapters/*.js   │
+                                                                                          ▼
+                          dashboard  ◀──  SSE /api/events  ◀──  event ring + IndexStore  ◀─┘
+                                                                index-store.js</div>
+
+      <h3>The pipeline</h3>
+      <ul>
+        <li><strong>Discover</strong> &mdash; <code>discoverClaudeSessions()</code> reads <code>~/.claude/.claude-manager/active-sessions.json</code> and scans <code>~/.claude/projects/*/*.jsonl</code>; <code>discoverAgSessions()</code> walks Antigravity brains; every other tool returns descriptors from its adapter's <code>discover(P)</code>.</li>
+        <li><strong>Tail</strong> &mdash; three source kinds per tick: <code>jsonl-tail</code> (byte-offset incremental read, offsets persisted in <code>state/offsets.json</code>), <code>json-snapshot</code> (mtime-triggered full re-read), <code>sqlite-steps</code> (drains new rows past a cursor). First sight backfills the last 2 MB; nested <code>subagents/*.jsonl</code> tail under the parent session.</li>
+        <li><strong>Extract</strong> &mdash; <code>extractClaudeEvents(line, sessionId)</code> parses each line and maps every <code>tool_use</code> through <code>classify()</code> into the shared event shape. Foreign adapters normalize native tool names (e.g. gemini's <code>read_file</code> &rarr; <code>Read</code>).</li>
+        <li><strong>Index</strong> &mdash; <code>IndexStore</code> keeps a <code>Map&lt;sessionId, Record&gt;</code> (eventCount, lastTs, skillsUsed, title, cwd, model) and atomically flushes <code>state/index.json</code> when dirty.</li>
+        <li><strong>Stream</strong> &mdash; <code>pushEvents()</code> strips <code>kind:'meta'</code> events, appends to a 2000-event ring, applies to the index, and writes to every SSE client.</li>
+      </ul>
+
+      <h3>The adapter contract</h3>
+      <p>Every module in <code>server/lib/adapters/</code> exports a uniform interface, so adding a tool is adding a file:</p>
+      <table>
+        <thead><tr><th>Export</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>id</code>, <code>displayName</code></td><td>Stable identifier + label.</td></tr>
+          <tr><td><code>controllable</code></td><td>Boolean. <code>true</code> only for <code>claude-code</code> &mdash; the act gate keys on this.</td></tr>
+          <tr><td><code>detect(P)</code></td><td><code>{installed, dataDirs}</code> &mdash; presence check.</td></tr>
+          <tr><td><code>discover(P)</code></td><td>Returns <code>SourceDescriptor[]</code>: <code>{id, tool, kind, file, cwd, mtimeMs, ...}</code>.</td></tr>
+          <tr><td><code>extractLine</code> / <code>extractSnapshot</code> / <code>extractSteps</code></td><td>Per source kind; return events (+ title/cwd).</td></tr>
+          <tr><td><code>tierDirs(P)</code> <span class="chip opt">optional</span></td><td>Contributes brain/ephemeral paths to the tier model.</td></tr>
+        </tbody>
+      </table>
+      <p>Deep adapters (10): <code>claude-code, antigravity, gemini-cli, copilot-chat, codex-cli, openclaw, hermes, agy-cli, opencode, cline</code>. Detect-only (6): cursor, windsurf, aider, continue, zed, copilot-cli.</p>
+
+      <h3>The shared event shape</h3>
+      <p>The connective tissue of the whole system &mdash; every adapter emits it, every consumer (index, SSE, detectors, UI) speaks only it.</p>
+      <pre><code>{
+  kind:      'tool'|'skill'|'agent'|'mcp'|'context-file'|'memory'
+           | 'file-edit'|'command'|'git'|'thinking'|'tokens'|'meta',
+  lane:      'feed' | 'context',     <span class="cmt">// activity stream vs durable context</span>
+  label:     string,
+  path:      string | null,
+  tool:      string,                 <span class="cmt">// 'Bash', 'Edit', 'mcp__discord__reply', ...</span>
+  ts:        number | string | null,
+  sessionId: string,
+  op?:       'read' | 'write',        <span class="cmt">// context-file / memory</span>
+  change?:   { hunks: [...] },        <span class="cmt">// Edit/Write diff</span>
+  model?:    string | null           <span class="cmt">// agent dispatch / thinking</span>
+}</code></pre>
+      <p><code>kind:'meta'</code> events (cwd discovery, model capture) are applied to the index but never streamed. <code>lane:'feed'</code> is the temporal activity stream; <code>lane:'context'</code> is durable cognitive context (skills, agent dispatches, MCP, memory writes, CLAUDE.md reads).</p>
+
+      <h3>The portability chassis: getPaths + the three-tier model</h3>
+      <p><code>getPaths(env, profile)</code> resolves every harness/state/asset path with the env &gt; profile &gt; default precedence. After it returns, <code>startServer()</code> sets <code>P.zoneConfig.tierRoots = deriveTierRoots(P, adapters)</code> so live classification sees the tiers.</p>
+      <table>
+        <thead><tr><th>Tier</th><th>Default roots</th><th>Policy</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Artifact</strong> (1)</td><td><code>repoRoots</code> &mdash; the client's source</td><td><code>gate</code> &mdash; read freely, mutate only through a gate</td></tr>
+          <tr><td><strong>Brain</strong> (2)</td><td><code>assetsDir</code>, <code>agentsDir</code>, claude-code <code>skills/ agents/ hooks/</code></td><td><code>versioned</code> &mdash; edit, but commit</td></tr>
+          <tr><td><strong>Ephemeral</strong> (3)</td><td><code>stateDir</code>, claude-code <code>projects/ cache/</code></td><td><code>readonly</code> &mdash; telemetry</td></tr>
+        </tbody>
+      </table>
+      <p>The tier axis is <em>orthogonal</em> to the dev/prod zone axis: <code>classifyPath()</code> returns both a <code>{zone, env, protected}</code> and a <code>tier</code>. Tier classification is additive &mdash; it never weakens the existing prod-protection. <code>sessionScope()</code> aggregates a session's edited paths into per-zone and per-tier counts, which power the scope strip.</p>
+    </section>
+
+    <!-- ───────────────────────── API ───────────────────────── -->
+    <section id="api">
+      <h2><span class="num">05</span>Dashboard &amp; API</h2>
+      <p>The UI is a thin client over a flat HTTP + SSE API. It opens one persistent <code>EventSource</code> on <code>/api/events</code> and reads detail on demand from <code>/api/state</code>.</p>
+
+      <h3>Live updates (SSE)</h3>
+      <table>
+        <thead><tr><th>Message</th><th>When</th><th>Client reaction</th></tr></thead>
+        <tbody>
+          <tr><td><code>hello</code></td><td>On connect, with a <code>buildId</code></td><td>A changed buildId after reconnect &rarr; <code>location.reload()</code> (suppressed if the editor pane is open).</td></tr>
+          <tr><td><code>events</code></td><td>A watched session file appended</td><td>Coalesce (2 s debounce) &rarr; fetch <code>/api/state</code> &rarr; re-render; dispatch <code>mc-events</code> to the open detail pane.</td></tr>
+          <tr><td><code>backlog</code></td><td>Any backlog write</td><td>Kanban refreshes.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Endpoint reference</h3>
+      <h4>State &amp; sessions</h4>
+      <table><tbody>
+        <tr><td><span class="chip get">GET</span> <code>/api/health</code></td><td>Liveness.</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/state</code></td><td>All sessions, inventory, usage totals, history index, tool detection.</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/state?session=&lt;id&gt;</code></td><td>Per-session detail: events, contextNow, usage, guiding docs, skills, detected gaps, loop stage, scope.</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/events</code></td><td>SSE stream (hello / events / backlog).</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/search</code></td><td>Full-text transcript search (filters: q, messageType, hasErrors, hasToolCalls, hasFileChanges, project, from, to).</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/config</code> &middot; <code>/api/agents</code> &middot; <code>/api/projects</code></td><td>Server config; agent fleet + dispatch counts; known repos with live/backlog counts.</td></tr>
+      </tbody></table>
+      <h4>Budget, usage, engagement, outcomes</h4>
+      <table><tbody>
+        <tr><td><span class="chip get">GET</span> <code>/api/budget</code></td><td>Plan-limiter usage (5h / 7d / 7d-Sonnet) + reset times; cached ~60 s.</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/usage</code></td><td>Per-session token/cost from the statusline tap.</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/engagement</code></td><td>Engagement tier classification (artifact/brain/ephemeral) + controllable flag.</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/outcomes</code> &middot; <code>/api/outcomes/summary</code></td><td>Outcome rows; per-task-class KPI rollup.</td></tr>
+        <tr><td><span class="chip post">POST</span> <code>/api/outcomes/finalize</code></td><td>Record a session as a finalized outcome row (idempotent).</td></tr>
+      </tbody></table>
+      <h4>Backlog &amp; runner</h4>
+      <table><tbody>
+        <tr><td><span class="chip get">GET</span> <code>/api/backlog</code> &middot; <span class="chip get">GET</span> <code>/api/backlog/:id</code></td><td>List (filters: project, status) / get one.</td></tr>
+        <tr><td><span class="chip post">POST</span> <code>/api/backlog</code></td><td>Create (poison-scanned at intake).</td></tr>
+        <tr><td><span class="chip put">PATCH</span> <code>/api/backlog/:id</code> &middot; <span class="chip del">DELETE</span> <code>/api/backlog/:id</code></td><td>Update fields / label-delta / comment; remove.</td></tr>
+        <tr><td><span class="chip post">POST</span> <code>/api/backlog/:id/approve</code></td><td>Release a quarantined card (the only release path &mdash; not a generic PATCH).</td></tr>
+        <tr><td><span class="chip post">POST</span> <code>/api/backlog/pause</code> &middot; <code>/api/backlog/reorder</code></td><td>Pause the runner / reorder a column.</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/runner</code> &middot; <span class="chip post">POST</span> <code>/api/runner/config</code> &middot; <code>/api/runner/run/:id</code></td><td>Runner state; config (enabled, maxConcurrent, useWorktrees...); launch one item now.</td></tr>
+      </tbody></table>
+      <h4>Learning</h4>
+      <table><tbody>
+        <tr><td><span class="chip get">GET</span> <code>/api/learning</code> &middot; <code>/api/learning/status</code></td><td>Queue (ingests pending results) + stats.</td></tr>
+        <tr><td><span class="chip post">POST</span> <code>/api/learning/idea</code> &middot; <code>/api/learning/config</code> &middot; <code>/api/learning/synth</code></td><td>File an idea; toggle autoApplyGaps; run the transcript sweep.</td></tr>
+        <tr><td><span class="chip post">POST</span> <code>/api/learning/item/:id/{approve,promote,alternative,discard}</code></td><td>Apply a guard / lift to global or memory / edit the rule / close.</td></tr>
+      </tbody></table>
+      <h4>Graph, file, memory, session actions</h4>
+      <table><tbody>
+        <tr><td><span class="chip get">GET</span> <code>/api/graph</code> &middot; <code>/api/graph/status</code> &middot; <span class="chip post">POST</span> <code>/api/graph/rebuild</code></td><td>Load graph; freshness; rebuild (<code>root</code> validated against an allowlist).</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/file?path=</code> &middot; <span class="chip put">PUT</span> <code>/api/file</code> &middot; <span class="chip post">POST</span> <code>/api/file/undo</code></td><td>Read / write (hash-based optimistic concurrency) / undo &mdash; allowlisted roots, secret paths denied.</td></tr>
+        <tr><td><span class="chip get">GET</span> <code>/api/memory/scan</code> &middot; <span class="chip post">POST</span> <code>/api/memory/scan</code></td><td>Scan memory dirs for poison + drift; POST re-baselines.</td></tr>
+        <tr><td><span class="chip post">POST</span> <code>/api/resume</code> &middot; <code>/api/terminal</code> &middot; <code>/api/open-in-editor</code> &middot; <code>/api/restart</code></td><td>Queue a resume / new terminal / open path; self-restart.</td></tr>
+      </tbody></table>
+    </section>
+
+    <!-- ───────────────────────── LOOP ───────────────────────── -->
+    <section id="loop">
+      <h2><span class="num">06</span>The self-improvement loop</h2>
+      <p>This is what makes GLMPS more than a viewer. The same parser that drives the live dashboard also drives an offline learning loop: observed mistakes become reviewable guard rules.</p>
+      <div class="flow">session ends ─▶ Stop hook (capability-feed.js) ─▶ extractClaudeEvents() ─▶ feedFromTranscript()
+                                                                      │
+                          ┌───────────────────────────────────────────┼──────────────────────────────┐
+                          ▼                                            ▼                              ▼
+                  detectGaps() (event)                      scanTranscriptForGaps() (raw)     deferral ─▶ backlog ticket
+                          └──────────────── merge by code ──────────────┘                         (poison-scanned)
+                                            ▼
+                          learning-store.js  (upsert, dedup by sha1(code|project))
+                                            ▼
+        rule-synth.js (regex oracle) + cross-model-eval.js (critic)  ─▶  human review (/api/learning)
+                                            ▼
+            approve / promote ─▶ learning-apply.js ─▶ insertGuard() into CLAUDE.md / CLAUDE.global.md / memory</div>
+
+      <h3>Detectors</h3>
+      <p>Two complementary detectors run on every ended session and merge deduped by <code>code</code> (first wins):</p>
+      <ul>
+        <li><strong><code>detectGaps()</code></strong> (<code>gap-detect.js</code>, event-shape): <code>ui-without-frontend-design</code>, <code>heavy-edits-no-subagents</code> (&ge;15 edits, no agent), <code>ui-design-too-late</code>, <code>reread-loop</code> (&gt;8 reads of one path), <code>done-without-verification</code>.</li>
+        <li><strong><code>scanTranscriptForGaps()</code></strong> (<code>transcript-gaps.js</code>, raw JSONL): <code>bash-grep-over-grep-tool</code>, <code>opus-on-mechanical</code> (subagents with no model set), <code>serial-agents-no-parallel</code>, <code>sleep-poll</code>, <code>backtest-result-without-skeptic</code> (opt-in via <code>backtestProjects</code>), <code>reread-loop</code>.</li>
+      </ul>
+
+      <h3>Store, oracle, and apply</h3>
+      <ul>
+        <li><strong>Store</strong> &mdash; <code>learning-store.js</code> upserts each gap keyed <code>sha1(code|project)</code>, bumping recurrence per distinct session. Items carry a <code>proposedGuard</code> (file + section + rule template). States: <code>pending &rarr; applied | discarded | dispatched | failed</code>; discarded/applied never resurface.</li>
+        <li><strong>Oracle</strong> &mdash; <code>rule-synth.js</code> <code>validateRule(regex, missed, heldOut)</code> requires the rule to match at least one missed prompt and zero held-out prompts before it can be committed. <code>cross-model-eval.js</code> adds an independent Haiku critic for a 0&ndash;1 disagreement score.</li>
+        <li><strong>Apply</strong> &mdash; <code>approve</code> calls <code>applyGuard()</code> &rarr; idempotent <code>insertGuard()</code> into the assets <code>CLAUDE.md</code>, git-commit, mark <code>applied</code> with the SHA. <code>promote</code> targets <code>CLAUDE.global.md</code> or a memory file (dispatched as a <code>claude -p</code> instruction the companion executes).</li>
+        <li><strong>Weekly sweep</strong> &mdash; <code>scripts/capability-synth.mjs</code> walks all transcripts and upserts gaps; <code>capability-synth-tick.js</code> (SessionStart) launches it detached if the watermark is &gt;7 days old.</li>
+      </ul>
+
+      <h3>The backlog board &amp; queue runner</h3>
+      <p>The board is a tracker; the runner is the opt-in worker. <code>pickNextJob()</code> selects the lowest-<code>order</code> <code>queued</code> &amp; non-quarantined item; <code>shouldClaim()</code> gates on enabled/paused/concurrency. A card flows <code>queued &rarr; in_progress</code> (sessionId attached) <code>&rarr; done</code> when the launched session self-reports <code>agent:done</code>. <code>worktreePlan()</code> isolates parallel jobs in <code>glmps-runner/&lt;proj&gt;/&lt;jobId&gt;</code> worktrees when concurrency &gt; 1. All git recipes are pure <code>{file, args}</code> objects executed without a shell &mdash; safe for spaced paths.</p>
+
+      <h3>The outcome / critic loop</h3>
+      <p>A higher tier records end-to-end session outcomes for champion/challenger evaluation. <code>session-outcome.js</code> builds an <code>OutcomeRow</code> from <code>classifyTask()</code> (task class), <code>computeMetrics()</code> (turns, wall clock, tool errors, context ratio, first-try), <code>verifierFromEvents()</code> (test/lint/build pass/fail from Bash result pairs), and acceptance coverage. Rows append to <code>outcomes/rows.ndjson</code>. <code>promotion.js</code> uses Pareto dominance (<code>paretoDominates</code>) so a regression on any metric blocks promotion. A replay/eval set (<code>replay-set.js</code>) provides the fixed task suite for challenger runs.</p>
+    </section>
+
+    <!-- ───────────────────────── SAFETY ───────────────────────── -->
+    <section id="safety">
+      <h2><span class="num">07</span>Safety &amp; governance</h2>
+      <p>The threat this project is built to close: <strong>injected content becoming persisted state or an executed job</strong>. The defenses are layered so an attack is stopped at the earliest possible point.</p>
+
+      <h3>Defense-in-depth layers</h3>
+      <table>
+        <thead><tr><th>#</th><th>Layer</th><th>What it stops</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td><code>capability-reminder.js</code> (UserPromptSubmit)</td><td>Prevents the miss up front: injects &le;3 skill/tool reminders when the prompt matches a rule.</td></tr>
+          <tr><td>1</td><td>Poison-scan at intake (<code>poison-scan.js</code> + <code>backlog-store.js</code>)</td><td>Quarantines a ticket before it enters the queue. Critical flags quarantine regardless of source; any flag quarantines <em>external</em>-trust content (closes the Stop-feeder &rarr; ticket &rarr; auto-run amplification loop).</td></tr>
+          <tr><td>2</td><td>Queue execution (<code>queue-runner.js</code>)</td><td>Refuses to launch a quarantined card; "Run now" returns 409. Release only via <code>/approve</code>.</td></tr>
+          <tr><td>3</td><td>File-API secret denylist (<code>file-api.js</code>)</td><td>Denies reads/writes of credential/secret files even inside an allowed root &mdash; blocks the confused-deputy exfil path.</td></tr>
+          <tr><td>4</td><td>Graph-rebuild allowlist (<code>server.js</code>)</td><td>Validates <code>body.root</code> against known graph roots before a <code>shell:true</code> spawn &mdash; blocks shell injection.</td></tr>
+          <tr><td>5</td><td>Memory-integrity scan (<code>memory-scan.js</code>)</td><td>Content scan + SHA-256 manifest diff surfaces planted/drifted memory entries before they steer future sessions.</td></tr>
+          <tr><td>6</td><td>Live-install guard (<code>live-install-guard.js</code>, PreToolUse)</td><td>Blocks writes into the live trading install (<code>GLMPS_LIVE_INSTALL_PATHS</code>); bypass needs <code>GLMPS_ALLOW_LIVE_INSTALL=1</code> or a <code>live-install.allow</code> file.</td></tr>
+          <tr><td>7</td><td>Scope-guard + done-gate (Stop)</td><td>Blocks "done" if prod-zone files were touched, or if <code>acceptance.md</code> commands fail (capped at 3 attempts so an agent is never trapped).</td></tr>
+          <tr><td>8</td><td>Act gate (<code>act-gate.js</code>)</td><td>Only the <code>controllable</code> harness (Claude Code) can actuate; foreign harnesses are structurally observe-only.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>The poison-scan detector table</h3>
+      <table>
+        <thead><tr><th>Code</th><th>Severity</th><th>Matches</th></tr></thead>
+        <tbody>
+          <tr><td><code>unicode-tag</code></td><td>critical</td><td>U+E0000&ndash;E007F hidden tag chars.</td></tr>
+          <tr><td><code>instruction-override</code></td><td>critical</td><td>"ignore previous instructions", "your new instructions:".</td></tr>
+          <tr><td><code>authority-spoof</code></td><td>critical</td><td>"you are now", "act as", "developer mode", "comes from Anthropic/the system".</td></tr>
+          <tr><td><code>exfiltration</code></td><td>critical</td><td>send/post/upload to a URL or email; "include api_key / .ssh in...".</td></tr>
+          <tr><td><code>credential</code></td><td>critical</td><td><code>sk-</code>, <code>AKIA</code>, <code>ghp_</code>, <code>xox</code>, <code>AIza</code>, PEM headers, bare JWTs.</td></tr>
+          <tr><td><code>zero-width</code> / <code>memory-injection</code> / <code>external-url</code> / <code>base64-instruction</code></td><td>warn</td><td>ZWJ/BOM; "remember that / from now on"; bare URLs; instruction-like base64.</td></tr>
+        </tbody>
+      </table>
+      <p><code>classifyTrust()</code> tags operator-typed content as <code>operator</code> and everything else as <code>external</code>; <code>quarantineDecision()</code> applies the asymmetric policy above.</p>
+
+      <h3>Dev/prod separation</h3>
+      <p><code>classifyPath()</code> returns <code>env:'prod'</code> for paths under a <code>protectedRoots</code> entry or with a <code>prod</code>/<code>-prod</code> segment. The six prod surfaces (per <a href="../dev-prod-separation.md"><code>docs/dev-prod-separation.md</code></a>): live trading installs, the published mirror, FROZEN research files, the running service + real state, secrets, and <code>main</code>. The only legitimate dev&rarr;prod crossing is an explicit gate (export script, review, <code>prod.allow</code>, or a <code>backtest-skeptic</code> verdict). The <code>scope-guard</code> activates only in repos that opt in via <code>acceptance.md</code>. See also <a href="../agent-poisoning-safeguards.md"><code>docs/agent-poisoning-safeguards.md</code></a>.</p>
+      <div class="note"><strong>Hooks fail open.</strong> Every hook is a thin shell over a pure, tested <code>server/lib</code> core and exits 0 on any internal error &mdash; a guard bug must never trap the user.</div>
+    </section>
+
+    <!-- ───────────────────────── GRAPHIFY ───────────────────────── -->
+    <section id="graphify">
+      <h2><span class="num">08</span>graphify integration</h2>
+      <p>GLMPS uses <code>graphify</code> to maintain an AST-level knowledge graph of each project (zero API cost). Artifacts live in <code>graphify-out/</code>: <code>graph.json</code> (nodes + edges), <code>GRAPH_REPORT.md</code> (god nodes, communities), and a <code>wiki/</code>.</p>
+      <ul>
+        <li><strong>Server side</strong> &mdash; <code>code-graph.js</code> <code>loadGraph()</code> reads the graph and overlays zone config; <code>graph-status.js</code> compares the graph's <code>builtFromCommit</code> to <code>HEAD</code> for freshness.</li>
+        <li><strong>Endpoints</strong> &mdash; <code>GET /api/graph</code> (load for a project), <code>GET /api/graph/status</code> (stale/fresh badges), <code>POST /api/graph/rebuild</code> (runs <code>graphify update</code>; <code>root</code> allowlisted; spawned detached so worker subprocesses don't pop console windows).</li>
+        <li><strong>Proactive nudges</strong> &mdash; <code>capability-reminder.js</code> tells the agent to query graphify before re-reading files when a prompt is architecture/orientation-shaped; <code>capability-feed.js</code> auto-runs <code>graphify update</code> after any session that touched code, keeping the graph current with no manual step.</li>
+      </ul>
+    </section>
+
+    <!-- ───────────────────────── COHESION ───────────────────────── -->
+    <section id="cohesion">
+      <h2><span class="num">09</span>How it all coheres</h2>
+      <p>The system is two flows sharing one spine. The spine is the <strong>shared event shape</strong>: one parser (<code>extractClaudeEvents</code>) feeds the live server, the Stop-hook feeder, and the weekly sweep, so observation and learning never diverge.</p>
+
+      <div class="flow">┌─────────────────────────────  OBSERVATION FLOW  ─────────────────────────────┐
+│  agent sessions (any harness)                                                │
+│        │  write transcripts                                                  │
+│        ▼                                                                      │
+│  capture adapters ─▶ classified events ─▶ IndexStore + ring ─▶ SSE ─▶ dashboard
+└──────────────────────────────────┬───────────────────────────────────────────┘
+                                    │ same events, same parser
+┌──────────────────────────────────▼──────────────  LEARNING FLOW  ────────────┐
+│  Stop hook ─▶ detectors ─▶ learning store ─▶ oracle/critic ─▶ human review     │
+│                                                   │                            │
+│                                                   ▼                            │
+│                          guard rules back into CLAUDE.md / memory              │
+│  (deferrals ─▶ backlog ─▶ queue runner ─▶ launch a new Claude Code session)    │
+└───────────────────────────────────────────────────────────────────────────────┘
+        ▲                         ▲                          ▲
+        │                         │                          │
+   poison-scan at         file-api denylist /        live-install guard /
+   backlog intake         graph-rebuild allowlist    scope + done gate
+                    (safeguards wrap intake, exec, and the file API)</div>
+
+      <p>In words: agents work; GLMPS watches them through adapters and shows the live picture. When a session ends, the same event stream is replayed offline to find capability misses, which become reviewable guard rules that flow back into the agent's own instructions &mdash; so the next session is a little less likely to repeat the mistake. Wrapping all of it, a defense-in-depth layer ensures that nothing injected into a transcript, a memory file, or a backlog ticket can quietly become persisted state or an executed job. The portability chassis (engagement profile + three-tier model + the observe/act split) is what lets this whole apparatus be pointed at any client's environment instead of one hard-wired machine.</p>
+    </section>
+
+    <!-- ───────────────────────── REFERENCE ───────────────────────── -->
+    <section id="reference">
+      <h2><span class="num">10</span>Reference</h2>
+
+      <h3>Hooks</h3>
+      <table>
+        <thead><tr><th>Hook</th><th>Type</th><th>Role</th></tr></thead>
+        <tbody>
+          <tr><td><code>capability-reminder.js</code></td><td>UserPromptSubmit</td><td>Inject &le;3 skill/tool reminders matching the prompt.</td></tr>
+          <tr><td><code>capability-feed.js</code></td><td>Stop</td><td>Per-session feeder: detect gaps &rarr; learning store; deferral &rarr; backlog; graphify refresh.</td></tr>
+          <tr><td><code>capability-synth-tick.js</code></td><td>SessionStart</td><td>Launch the weekly transcript sweep if the watermark is stale.</td></tr>
+          <tr><td><code>done-gate.js</code></td><td>Stop</td><td>Run <code>acceptance.md</code> commands + scope-guard; block "done" on failure (capped).</td></tr>
+          <tr><td><code>live-install-guard.js</code></td><td>PreToolUse</td><td>Block writes into the live trading install path.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Key environment variables</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr><td><code>GLMPS_PROFILE</code></td><td>Explicit path to the engagement profile (checked before cwd).</td></tr>
+          <tr><td><code>GLMPS_*</code> (e.g. <code>GLMPS_CLAUDE_DIR</code>, <code>GLMPS_STATE_DIR</code>, <code>GLMPS_ASSETS_DIR</code>, <code>GLMPS_ZONE_CONFIG</code>)</td><td>Highest-precedence path/config overrides (used by tests and power users).</td></tr>
+          <tr><td><code>GLMPS_LIVE_INSTALL_PATHS</code></td><td>Path prefixes the live-install guard blocks.</td></tr>
+          <tr><td><code>GLMPS_ALLOW_LIVE_INSTALL=1</code> / <code>live-install.allow</code></td><td>Deliberate bypass of the live-install guard.</td></tr>
+          <tr><td><code>GLMPS_DONE_GATE=off</code> / <code>done.skip</code></td><td>Bypass the done-gate.</td></tr>
+          <tr><td><code>GLMPS_ALLOW_ACT=1</code> / <code>GLMPS_RUNNER_DRYRUN</code></td><td>Bypass the observe/act gate (tests / dev).</td></tr>
+          <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Enables the cross-model critic in rule synthesis (optional).</td></tr>
+        </tbody>
+      </table>
+
+      <h3>State directory layout</h3>
+      <p>Per-engagement state under <code>stateDir</code> (default <code>~/.glmps</code> or <code>~/.glmps/&lt;engagement&gt;</code>):</p>
+      <pre><code>state/offsets.json        <span class="cmt"># tail byte offsets</span>
+state/index.json          <span class="cmt"># session index</span>
+learning/store.json       <span class="cmt"># capability-loop items</span>
+backlog/store.json        <span class="cmt"># board cards</span>
+outcomes/rows.ndjson      <span class="cmt"># append-only outcome rows</span>
+status/&lt;sid&gt;.json          <span class="cmt"># live statusline snapshots</span>
+usage/&lt;date&gt;.ndjson        <span class="cmt"># per-turn usage records</span>
+requests/resume.jsonl     <span class="cmt"># companion pickup queue</span></code></pre>
+
+      <h3>Further reading (in <code>docs/</code>)</h3>
+      <ul>
+        <li><a href="../agent-poisoning-safeguards.md"><code>agent-poisoning-safeguards.md</code></a> &mdash; the full threat model.</li>
+        <li><a href="../dev-prod-separation.md"><code>dev-prod-separation.md</code></a> &mdash; the dev/prod rule set and enforcement.</li>
+        <li><a href="../discord-ticket-handoff.md"><code>discord-ticket-handoff.md</code></a> &mdash; the single-reply Discord handoff guard.</li>
+      </ul>
+
+      <footer>
+        GLMPS documentation &middot; generated from the codebase at the portability-chassis branch.
+        The dashboard is localhost-only; treat every endpoint as unauthenticated.
+      </footer>
+    </section>
+  </main>
+</div>
+
+<script>
+  // Mobile nav toggle
+  (function () {
+    var side = document.getElementById('side');
+    var btn = document.getElementById('navtoggle');
+    btn.addEventListener('click', function () {
+      var open = side.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    side.addEventListener('click', function (e) {
+      if (e.target.tagName === 'A') { side.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+    });
+  })();
+
+  // Scroll-spy: highlight the active section in the sidebar
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('#side nav a'));
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+    var sections = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); }).filter(Boolean);
+    if (!('IntersectionObserver' in window)) return;
+    var current = null;
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) {
+          if (current) current.classList.remove('active');
+          var a = byId[en.target.id];
+          if (a) { a.classList.add('active'); a.setAttribute('aria-current', 'true'); current = a; }
+          links.forEach(function (l) { if (l !== a) l.removeAttribute('aria-current'); });
+        }
+      });
+    }, { rootMargin: '-10% 0px -75% 0px', threshold: 0 });
+    sections.forEach(function (s) { obs.observe(s); });
+  })();
+</script>
+</body>
+</html>

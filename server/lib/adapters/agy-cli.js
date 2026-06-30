@@ -8,6 +8,7 @@ import { classifyGit } from '../git-events.js';
 
 export const id = 'agy-cli';
 export const displayName = 'Antigravity CLI';
+export const controllable = false;
 
 // Load DatabaseSync via require() so the module itself doesn't fail to import
 // when node:sqlite is absent or experimental warnings are suppressed.

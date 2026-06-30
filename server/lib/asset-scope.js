@@ -44,17 +44,20 @@ export function annotateUnused(unused, sessionProjectKey, sessionCwd) {
   const skills = (unused.skills ?? []).map(item => ({
     ...item,
     applicable: true,
+    tier: 2,
   }));
 
   const agents = (unused.agents ?? []).map(item => ({
     ...item,
     applicable: true,
+    tier: 2,
   }));
 
   const memory = (unused.memory ?? []).map(item => ({
     ...item,
     applicable: item.project === sessionProjectKey,
     location: demungeProject(item.project ?? ''),
+    tier: 2,
   }));
 
   const contextFiles = (unused.contextFiles ?? []).map(item => {
@@ -78,7 +81,7 @@ export function annotateUnused(unused, sessionProjectKey, sessionCwd) {
       location = rootStr;
     }
 
-    return { ...item, applicable, location };
+    return { ...item, applicable, location, tier: 2 };
   });
 
   return { skills, agents, memory, contextFiles };

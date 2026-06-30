@@ -74,7 +74,7 @@ import os from 'node:os';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { decideScopeGuard } from '../server/lib/scope-guard.js';
-import { DEFAULT_ZONE_CONFIG } from '../server/lib/zones.js';
+import { DEFAULT_ZONE_CONFIG, mergeProtectedRoots } from '../server/lib/zones.js';
 
 function doneGateDir() {
   if (process.env.GLMPS_DONE_GATE_DIR) return process.env.GLMPS_DONE_GATE_DIR;
@@ -84,6 +84,16 @@ function doneGateDir() {
 function readContract(cwd) {
   try { return parseAcceptance(fs.readFileSync(path.join(cwd, 'acceptance.md'), 'utf8')); }
   catch { return null; }
+}
+// Opt-in, config-driven prod roots: read prodRoots[] from the gitignored
+// config.json at the repo root (one level above hooks/). Absent in a fresh or
+// public install -> [] -> the scope-guard stays inert. Mirrors the
+// backtestProjects pattern in hooks/capability-feed.js. Exported for tests.
+export function readProdRoots(hooksDir) {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(hooksDir, '..', 'config.json'), 'utf8'));
+    return Array.isArray(cfg.prodRoots) ? cfg.prodRoots.filter(r => typeof r === 'string' && r) : [];
+  } catch { return []; }
 }
 function skipPresent(cwd) {
   if ((process.env.GLMPS_DONE_GATE || '').toLowerCase() === 'off') return true;
@@ -154,6 +164,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
       try {
         if (process.env.GLMPS_ZONE_CONFIG) zoneConfig = JSON.parse(process.env.GLMPS_ZONE_CONFIG);
       } catch { /* bad JSON in env -> use default, never throw */ }
+      // Fold opt-in, config-driven prod roots (e.g. the live trading install,
+      // D:/glmps_prod) into protectedRoots so they trip the scope-guard at Stop.
+      // Default empty -> inert on a fresh/public install.
+      zoneConfig = mergeProtectedRoots(zoneConfig, readProdRoots(path.dirname(fileURLToPath(import.meta.url))));
 
       const override = skip || prodAllowPresent(cwd); // skip already covers done.skip + GLMPS_DONE_GATE=off
       const sg = decideScopeGuard({

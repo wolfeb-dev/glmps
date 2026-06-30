@@ -13,6 +13,40 @@ test('pickNextJob returns lowest-order queued item', () => {
   assert.equal(qr.pickNextJob([{ id: 'x', state: 'done', order: 0 }]), null);
 });
 
+test('launchHeader: base header names the card and the close instruction', () => {
+  const h = qr.launchHeader({ job: { id: 'glmps-7', project: 'nq' }, port: 8123 });
+  assert.match(h, /Backlog card glmps-7 \(project: nq\)/);
+  assert.match(h, /PATCH http:\/\/127\.0\.0\.1:8123\/api\/backlog\/glmps-7/);
+  assert.match(h, /Your task follows\./);
+  // No discord origin -> no handoff line.
+  assert.doesNotMatch(h, /Discord/i);
+});
+
+test('launchHeader: a discord-origin ticket tells the launched session it OWNS the reply', () => {
+  const h = qr.launchHeader({
+    job: { id: 'glmps-8', project: 'nq', origin: { via: 'discord', chatId: 'C123', messageId: 'M456' } },
+    port: 8123,
+  });
+  assert.match(h, /handed off from Discord/i);
+  assert.match(h, /C123/);
+  assert.match(h, /message M456/);
+  assert.match(h, /will NOT reply inline/i);
+});
+
+test('launchHeader: discord origin without chatId adds no handoff line (incomplete origin)', () => {
+  const h = qr.launchHeader({ job: { id: 'glmps-9', project: 'nq', origin: { via: 'discord' } }, port: 8123 });
+  assert.doesNotMatch(h, /OWN the reply/i);
+});
+
+test('pickNextJob skips quarantined items (poison gate)', () => {
+  const items = [
+    { id: 'q', state: 'queued', order: 1, quarantined: true },
+    { id: 'ok', state: 'queued', order: 2 },
+  ];
+  assert.equal(qr.pickNextJob(items).id, 'ok', 'quarantined job is not auto-launched');
+  assert.equal(qr.pickNextJob([{ id: 'q', state: 'queued', order: 1, quarantined: true }]), null);
+});
+
 test('shouldClaim respects enabled, paused, and concurrency', () => {
   assert.equal(qr.shouldClaim({ enabled: true, paused: false, runningCount: 0, maxConcurrent: 1 }), true);
   assert.equal(qr.shouldClaim({ enabled: false, paused: false, runningCount: 0, maxConcurrent: 1 }), false);

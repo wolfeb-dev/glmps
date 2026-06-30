@@ -11,6 +11,7 @@ import { classifyGit } from '../git-events.js';
 
 export const id = 'codex-cli';
 export const displayName = 'Codex CLI';
+export const controllable = false;
 
 function statDir(d) { try { return fs.statSync(d).isDirectory(); } catch { return false; } }
 

@@ -6,6 +6,7 @@ import { extractAgEvents } from '../extract-antigravity.js';
 
 export const id = 'antigravity';
 export const displayName = 'Antigravity IDE';
+export const controllable = false;
 
 export function detect(P) {
   const installed = P.antigravityDirs.some(d => {

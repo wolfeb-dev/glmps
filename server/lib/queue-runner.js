@@ -4,13 +4,38 @@
 import path from 'node:path';
 
 export function pickNextJob(items = []) {
-  const queued = items.filter(i => i.state === 'queued');
+  // Poison gate: a quarantined ticket (flagged at intake by poison-scan) is never
+  // auto-launched. It stays queued and visible until an operator approves it.
+  const queued = items.filter(i => i.state === 'queued' && !i.quarantined);
   if (!queued.length) return null;
   return queued.reduce((best, i) => (i.order < best.order ? i : best));
 }
 
 export function shouldClaim({ enabled, paused, runningCount, maxConcurrent } = {}) {
   return !!enabled && !paused && runningCount < maxConcurrent;
+}
+
+// Build the seed header prepended to a launched job's prompt. Pure + testable.
+// Discord handoff guard (glmps-21): when a ticket carries a discord origin, the
+// launched session is told it OWNS the single reply to that chat, so a message
+// handed off to the backlog is not ALSO answered inline by the session that
+// filed it. The filing session sets the origin and stays silent; this session
+// is the one point of reply.
+export function launchHeader({ job = {}, port } = {}) {
+  const lines = [
+    `Backlog card ${job.id} (project: ${job.project}). You were launched by the GLMPS queue runner.`,
+    `When done, close the card: PATCH http://127.0.0.1:${port}/api/backlog/${job.id} with {"labels":["agent:done"]} (use "agent:backlog" to requeue).`,
+  ];
+  const o = job.origin;
+  if (o && o.via === 'discord' && o.chatId) {
+    lines.push(
+      `This ticket was handed off from Discord and you OWN the reply: when done, reply to Discord chat ${o.chatId}` +
+      `${o.messageId ? ` (re: message ${o.messageId})` : ''} via the discord reply tool. The session that filed this ` +
+      `ticket will NOT reply inline, so do not assume the user already received an answer.`,
+    );
+  }
+  lines.push(`Your task follows.`);
+  return lines.join('\n');
 }
 
 // ── Worktree isolation ───────────────────────────────────────────────────────

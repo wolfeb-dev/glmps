@@ -20,6 +20,7 @@ import { IndexStore } from './lib/index-store.js';
 import { searchTranscripts } from './lib/search.js';
 import { FileApi } from './lib/file-api.js';
 import { adapters, detectAll } from './lib/adapters/index.js';
+import { assertCanAct } from './lib/act-gate.js';
 import { computeGuiding } from './lib/guiding.js';
 import { annotateUnused } from './lib/asset-scope.js';
 import { detectGaps } from './lib/gap-detect.js';
@@ -29,16 +30,21 @@ import { loopStage } from './lib/loop-stage.js';
 import * as learningStore from './lib/learning-store.js';
 import * as backlogStore from './lib/backlog-store.js';
 import * as runnerStore from './lib/runner-store.js';
+import * as memoryScan from './lib/memory-scan.js';
+import { SEVERITY as POISON_SEVERITY } from './lib/poison-scan.js';
 import { TARGET_IDS, resolveTarget, launchTargetFor, seededCommand, nativeTerminalRecipe, companionRecord, procNamesFor } from './lib/editor-targets.js';
-import { pickNextJob, shouldClaim, reconcileLedger, shouldIsolate, worktreePlan, worktreeAddRecipe, worktreeRemoveRecipe, worktreePruneRecipe } from './lib/queue-runner.js';
+import { pickNextJob, shouldClaim, reconcileLedger, shouldIsolate, worktreePlan, worktreeAddRecipe, worktreeRemoveRecipe, worktreePruneRecipe, launchHeader } from './lib/queue-runner.js';
 import { applyGuard, enqueueIdeaApply, buildIdeaApplyCommand, buildMemoryApplyCommand, ingestResults } from './lib/learning-apply.js';
 import { buildTerminalRequest } from './lib/terminal-request.js';
 import { readUsage, appendSnapshot } from './lib/usage-store.js';
 import { readOutcomes } from './lib/outcome-store.js';
 import { summarizeOutcomes } from './lib/outcome-metrics.js';
 import { finalizeSession } from './lib/session-outcome.js';
+import { listReplayTasks } from './lib/replay-set.js';
+import { promotionView } from './lib/promotion-view.js';
 import { readBudget } from './lib/budget.js';
 import { pickTitle, cleanFirstPrompt } from './lib/session-title.js';
+import { engagementView, loadProfile, deriveTierRoots } from './lib/profile.js';
 
 const WEB_DIR = path.join(path.dirname(url.fileURLToPath(import.meta.url)), '..', 'web');
 const REPO_ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
@@ -156,7 +162,9 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
   }, readJsonSafe(configFile));
   if (port !== undefined) cfg.port = port;
 
-  const P = getPaths(env);
+  const profile = loadProfile({ cwd: process.cwd(), env, home: os.homedir() });
+  const P = getPaths(env, profile);
+  P.zoneConfig = { ...P.zoneConfig, tierRoots: deriveTierRoots(P, adapters) };
   ensureStateDirs(P);
   const index = new IndexStore(P.indexFile);
   // Project roots the dashboard / map / navigator surface files from must be
@@ -852,6 +860,9 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       if (u.pathname === '/api/usage') {
         return send(200, readUsage(P.stateDir));
       }
+      if (u.pathname === '/api/engagement' && req.method === 'GET') {
+        return send(200, engagementView(P, adapters));
+      }
       // Top-end self-improvement loop: per-session outcome records + per-task-class summary.
       if (u.pathname === '/api/outcomes' && req.method === 'GET') {
         const unit = u.searchParams.get('unit') || undefined;
@@ -860,6 +871,17 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       }
       if (u.pathname === '/api/outcomes/summary' && req.method === 'GET') {
         return send(200, summarizeOutcomes(readOutcomes(P.stateDir)));
+      }
+      // Top-end eval/replay set: the fixed task suite a challenger is scored against.
+      if (u.pathname === '/api/replay' && req.method === 'GET') {
+        return send(200, { tasks: listReplayTasks(P.stateDir) });
+      }
+      // Champion/challenger promotion verdict over per-unit outcome aggregates.
+      // ?champion=<unit>&challenger=<unit> override the defaults (incumbent vs next).
+      if (u.pathname === '/api/promotion' && req.method === 'GET') {
+        const champion = u.searchParams.get('champion') || undefined;
+        const challenger = u.searchParams.get('challenger') || undefined;
+        return send(200, promotionView(readOutcomes(P.stateDir), { champion, challenger }));
       }
       // Finalize one session into an outcome row (idempotent). Driven on demand by a
       // Stop feeder or manual trigger; pulls events from the in-memory log + latest usage.
@@ -993,6 +1015,11 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           const r = learningStore.applyAction(st, id, action, { rule: body.rule });
           learningStore.save(P.stateDir, r.state);
           return send(200, r.item);
+        }
+        // Gate: approve and promote write governance rules or launch harness actions (discard/alternative already returned above).
+        if (!(env.GLMPS_RUNNER_DRYRUN || env.GLMPS_ALLOW_ACT === '1')) {
+          const gate = assertCanAct(P, adapters);
+          if (!gate.ok) return send(gate.status, gate.body);
         }
         // promote: lift a learning to a broader scope so all agents see it.
         //  target 'global' (default) -> deterministic guard commit into CLAUDE.global.md.
@@ -1134,7 +1161,14 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           const body = JSON.parse((await readBody(req)) || '{}');
           let targets;
           if (body.root) {
-            targets = [String(body.root)];
+            // Only ever rebuild a root the server already knows about. Without this,
+            // body.root flows into spawn(..., { shell: true }) and an attacker-
+            // controlled string ("x && calc.exe") becomes shell command execution.
+            const allow = collectGraphRoots().map(r => path.resolve(r));
+            const want = path.resolve(String(body.root));
+            const match = allow.find(r => r.toLowerCase() === want.toLowerCase());
+            if (!match) return send(400, { error: 'root not in graph allowlist' });
+            targets = [match];
           } else {
             // Build current status to determine stale graphs
             const roots = collectGraphRoots();
@@ -1162,6 +1196,38 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
           const graphs = sortGraphs(results.filter(Boolean));
           return send(200, { graphs });
         } catch (e) { return send(500, { error: e.message }); }
+      }
+
+      // ── Memory integrity + poisoning scan ─────────────────────
+      // GET scans every project memory dir for injected/poisoned entries and
+      // reports drift against a persisted baseline manifest; POST re-baselines
+      // (operator acknowledges the current memory state as trusted).
+      if (u.pathname === '/api/memory/scan' && (req.method === 'GET' || req.method === 'POST')) {
+        let subs = [];
+        try {
+          subs = fs.readdirSync(P.projectsDir, { withFileTypes: true })
+            .filter(d => d.isDirectory()).map(d => d.name);
+        } catch { /* no projects dir */ }
+        const dirs = [];
+        const flagged = [];
+        const manifest = {};
+        let severity = 'none';
+        for (const proj of subs) {
+          const r = memoryScan.scanMemoryDir(path.join(P.projectsDir, proj, 'memory'));
+          if (!r.files.length) continue;
+          dirs.push({ project: proj, severity: r.severity, files: r.files });
+          for (const [name, h] of Object.entries(r.manifest)) manifest[`${proj}/${name}`] = h;
+          for (const f of r.flagged) flagged.push({ project: proj, ...f });
+          if (POISON_SEVERITY[r.severity] > POISON_SEVERITY[severity]) severity = r.severity;
+        }
+        const baseFile = path.join(P.stateDir, 'memory-baseline.json');
+        let baseline = {};
+        try { baseline = JSON.parse(fs.readFileSync(baseFile, 'utf-8')); } catch { /* no baseline yet */ }
+        const integrity = memoryScan.diffManifest(baseline, manifest);
+        if (req.method === 'POST' || Object.keys(baseline).length === 0) {
+          try { fs.mkdirSync(P.stateDir, { recursive: true }); fs.writeFileSync(baseFile, JSON.stringify(manifest, null, 2)); } catch {}
+        }
+        return send(200, { severity, dirs, flagged, integrity, acknowledged: req.method === 'POST' });
       }
 
       // ── Projects summary ──────────────────────────────────────
@@ -1259,6 +1325,7 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
         if (!body.title || !String(body.title).trim()) return send(400, { error: 'empty title' });
         const { item } = backlogStore.addItemTo(P.stateDir, {
           project: body.project, title: String(body.title).trim(), prompt: body.prompt, state: body.state,
+          origin: body.origin,
         });
         broadcastBacklog();
         return send(201, item);
@@ -1276,6 +1343,15 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
         const { items } = backlogStore.reorderItemsIn(P.stateDir, { ids: body.ids, status: body.status, project: body.project });
         broadcastBacklog();
         return send(200, { items });
+      }
+      // Operator-only release of a poison-quarantined card (human-in-the-loop).
+      const approveMatch = u.pathname.match(/^\/api\/backlog\/([^/]+)\/approve$/);
+      if (approveMatch && req.method === 'POST') {
+        const id = decodeURIComponent(approveMatch[1]);
+        const r = backlogStore.approveItemIn(P.stateDir, id);
+        if (!r.item) return send(404, { error: 'item not found' });
+        broadcastBacklog();
+        return send(200, r.item);
       }
       const backlogMatch = u.pathname.match(/^\/api\/backlog\/([^/]+)$/);
       if (backlogMatch && req.method === 'GET') {
@@ -1320,6 +1396,10 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
       }
       const runMatch = u.pathname.match(/^\/api\/runner\/run\/([^/]+)$/);
       if (runMatch && req.method === 'POST') {
+        if (!(env.GLMPS_RUNNER_DRYRUN || env.GLMPS_ALLOW_ACT === '1')) {
+          const gate = assertCanAct(P, adapters);
+          if (!gate.ok) return send(gate.status, gate.body);
+        }
         const { status, body } = runJobNow(decodeURIComponent(runMatch[1]));
         return send(status, body);
       }
@@ -1493,11 +1573,7 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
     // Downgrade a companion-less editor target to native-terminal so the session
     // actually opens (glmps-12); the ledger/label below then reflect the real target.
     const target = launchTargetFor(preferred, { agAlive, antigravityCommand: cfg.antigravityCommand });
-    const header = [
-      `Backlog card ${job.id} (project: ${job.project}). You were launched by the GLMPS queue runner.`,
-      `When done, close the card: PATCH http://127.0.0.1:${actualPort}/api/backlog/${job.id} with {"labels":["agent:done"]} (use "agent:backlog" to requeue).`,
-      `Your task follows.`,
-    ].join('\n');
+    const header = launchHeader({ job, port: actualPort });
     const promptFile = runnerStore.writePrompt(P.stateDir, job.id, `${header}\n\n${job.prompt ?? ''}`);
     const seeded = seededCommand(claudeCmd, promptFile);
     const pid = launchSession({ target, seeded, cwd });
@@ -1552,6 +1628,9 @@ export async function startServer({ port, pollMs = 1000, env = process.env, conf
     if (!job) return { status: 404, body: { error: 'item not found' } };
     if (ledger[id]) return { status: 409, body: { error: 'already running' } };
     if (job.state === 'done' || job.state === 'cancelled') return { status: 409, body: { error: `card is ${job.state}` } };
+    // Poison gate: even an explicit "Run now" cannot launch a quarantined card.
+    // Force the operator to review and approve it first (POST .../approve).
+    if (job.quarantined) return { status: 409, body: { error: 'card is poison-quarantined — review and approve it before running', flags: job.provenance?.flags ?? [] } };
     if (Object.keys(ledger).length >= rc.maxConcurrent) return { status: 409, body: { error: 'runner at capacity — finish or wait for the running session' } };
     const { target, pid, worktree } = launchJob(job);
     ledger[id] = { pid: pid ?? null, startedAt: Date.now(), target, retries: 0, worktree: worktree ?? null };

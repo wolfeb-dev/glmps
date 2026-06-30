@@ -23,7 +23,7 @@ function gitAssetsRepo() {
 test('learning HTTP endpoints: idea, config, alternative, approve->applied, discard, 404', async () => {
   const stateDir = tmp('mc-state-');
   const assetsDir = gitAssetsRepo();
-  const env = { ...process.env, GLMPS_STATE_DIR: stateDir, GLMPS_ASSETS_DIR: assetsDir };
+  const env = { ...process.env, GLMPS_STATE_DIR: stateDir, GLMPS_ASSETS_DIR: assetsDir, GLMPS_ALLOW_ACT: '1' };
   const h = await startServer({ port: 0, env, configFile: path.join(stateDir, 'no-config.json') });
   const base = `http://127.0.0.1:${h.port}`;
   const j = async (p, opt) => { const r = await fetch(base + p, opt); return { status: r.status, body: await r.json() }; };
@@ -85,7 +85,7 @@ test('learning HTTP endpoints: idea, config, alternative, approve->applied, disc
 test('promote: target global commits a guard; target memory dispatches a memory-compose', async () => {
   const stateDir = tmp('mc-state-');
   const assetsDir = gitAssetsRepo();
-  const env = { ...process.env, GLMPS_STATE_DIR: stateDir, GLMPS_ASSETS_DIR: assetsDir };
+  const env = { ...process.env, GLMPS_STATE_DIR: stateDir, GLMPS_ASSETS_DIR: assetsDir, GLMPS_ALLOW_ACT: '1' };
   const h = await startServer({ port: 0, env, configFile: path.join(stateDir, 'no-config.json') });
   const base = `http://127.0.0.1:${h.port}`;
   const j = async (p, opt) => { const r = await fetch(base + p, opt); return { status: r.status, body: await r.json() }; };

@@ -108,30 +108,199 @@ body {
 }
 @media (prefers-reduced-motion: reduce) { .brand-sweep, .brand-dot { animation: none; } }
 
-/* ── Nav pills — per-tab accent from the dashboard palette ── */
+/* ── Nav — dropdown pillar menu bar ─────────────────────────────────────── */
 #topbar nav {
   display: flex;
-  gap: 5px;
+  align-items: center;
+  gap: 2px;
 }
 
-#topbar nav button {
+/* Pillar color tokens — source of truth for trigger accents, dot colors, and
+   active-view tints. To retheme a pillar: change its --pillar-color here.   */
+.nav-pillar-overview      { --pillar-color: var(--muted-fg); }
+.nav-pillar-observability { --pillar-color: var(--info);    }
+.nav-pillar-evaluation    { --pillar-color: var(--accent);  }
+.nav-pillar-orchestration { --pillar-color: var(--primary); }
+.nav-pillar-governance    { --pillar-color: var(--success); }
+
+/* Container — positions the dropdown relative to its trigger */
+.nav-pillar {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* Top-level pillar trigger */
+.nav-pillar-trigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   background: none;
   border: 1px solid transparent;
   color: var(--muted-fg);
   cursor: pointer;
-  padding: 4px 13px;
-  border-radius: 999px;
+  padding: 4px var(--sp-2);
+  border-radius: 6px;
   font-size: var(--fs-small);
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  line-height: 1.4;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
-#topbar nav button:hover { color: var(--fg); background: var(--muted); border-color: var(--border); }
-#topbar nav button.active { color: var(--fg); background: var(--muted); border-color: var(--border); }
-#topbar nav button[data-view="grid"].active     { color: var(--success);     background: rgba(63,184,127,.12);  border-color: rgba(63,184,127,.5); }
-#topbar nav button[data-view="history"].active   { color: var(--info);        background: rgba(74,140,216,.12);  border-color: rgba(74,140,216,.5); }
-#topbar nav button[data-view="analytics"].active { color: var(--warning);     background: rgba(224,162,58,.12);  border-color: rgba(224,162,58,.5); }
-#topbar nav button[data-view="learning"].active  { color: var(--accent);      background: rgba(168,120,216,.12); border-color: rgba(168,120,216,.5); }
+.nav-pillar-trigger:hover,
+.nav-pillar.is-open .nav-pillar-trigger {
+  color: var(--fg);
+  background: var(--muted);
+  border-color: var(--border);
+}
+/* Active pillar: the trigger whose pillar contains the currently-shown view */
+.nav-pillar-trigger.active-pillar {
+  color: var(--pillar-color);
+}
+.nav-pillar-trigger:focus-visible {
+  outline: 2px solid var(--pillar-color, var(--info));
+  outline-offset: 1px;
+}
+
+/* Dropdown panel — visibility-based toggle so opacity transition applies */
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 148px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.3);
+  margin-top: 5px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s 0.14s;
+}
+.nav-pillar.is-open .nav-dropdown {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+  transition: opacity 0.14s ease, transform 0.14s ease, visibility 0s 0s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-dropdown,
+  .nav-pillar.is-open .nav-dropdown { transition: none; transform: none; }
+}
+
+/* View buttons inside dropdown */
+.nav-view-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted-fg);
+  cursor: pointer;
+  padding: 6px var(--sp-2);
+  border-radius: 5px;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+}
+.nav-view-btn:hover { color: var(--fg); background: var(--muted); }
+.nav-view-btn:focus-visible {
+  outline: 2px solid var(--pillar-color, var(--info));
+  outline-offset: -2px;
+}
+/* Active view item — pillar-tinted, matching the existing token pattern */
+.nav-pillar-overview      .nav-view-btn.active { color: var(--muted-fg); background: rgba(138,146,156,.12); border-color: rgba(138,146,156,.4); }
+.nav-pillar-observability .nav-view-btn.active { color: var(--info);    background: rgba(74,140,216,.12);  border-color: rgba(74,140,216,.5); }
+.nav-pillar-evaluation    .nav-view-btn.active { color: var(--accent);  background: rgba(168,120,216,.12); border-color: rgba(168,120,216,.5); }
+.nav-pillar-orchestration .nav-view-btn.active { color: var(--primary); background: rgba(212,164,55,.12);  border-color: rgba(212,164,55,.5); }
+.nav-pillar-governance    .nav-view-btn.active { color: var(--success); background: rgba(63,184,127,.12);  border-color: rgba(63,184,127,.5); }
+
+/* ── Nav pulse dots ─────────────────────────────────────────────────────── */
+/* .nav-item-dot  — on individual view menu items (learning pending, kanban queued) */
+/* .nav-pillar-dot — bubbles to the trigger when any child view has an active dot  */
+.nav-item-dot,
+.nav-pillar-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: nav-dot-pulse 1.8s ease-in-out infinite;
+}
+.nav-pillar-overview      .nav-item-dot,
+.nav-pillar-overview      .nav-pillar-dot { background: var(--muted-fg); box-shadow: 0 0 5px rgba(138,146,156,.7); }
+.nav-pillar-observability .nav-item-dot,
+.nav-pillar-observability .nav-pillar-dot { background: var(--info);    box-shadow: 0 0 5px rgba(74,140,216,.7); }
+.nav-pillar-evaluation    .nav-item-dot,
+.nav-pillar-evaluation    .nav-pillar-dot { background: var(--accent);  box-shadow: 0 0 5px rgba(168,120,216,.7); }
+.nav-pillar-orchestration .nav-item-dot,
+.nav-pillar-orchestration .nav-pillar-dot { background: var(--primary); box-shadow: 0 0 5px rgba(212,164,55,.7); }
+.nav-pillar-governance    .nav-item-dot,
+.nav-pillar-governance    .nav-pillar-dot { background: var(--success); box-shadow: 0 0 5px rgba(63,184,127,.7); }
+@keyframes nav-dot-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1.3); }
+  50%       { opacity: 0.4; transform: scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-item-dot, .nav-pillar-dot { animation: none; transform: none; }
+}
+
+/* ── Pillar banner — view-level classification strip ────────────────────────
+   Sits between topbar and main; updates on view-switch via showView() in app.js. */
+#pillar-banner {
+  display: flex;
+  align-items: center;
+  padding: 5px var(--sp-4);
+  min-height: 28px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background:
+    radial-gradient(600px 60px at 0% 0%, rgba(212,164,55,.025), transparent 70%),
+    var(--card);
+}
+#pillar-banner:empty {
+  display: none; /* collapse when no chip present (e.g. Analytics cross-cutting) */
+}
+
+/* ── AgentOps pillar chips ──────────────────────────────────────────────────
+   View-level (in #pillar-banner) and panel-level (inside Analytics panels).
+   Mirrors the .chip idiom: same size, padding, radius, uppercase treatment.
+   One modifier class per pillar supplies the color.
+   To change a pillar's color: update the token in .nav-pillar-* above AND here. */
+.pillar-chip {
+  font-size: var(--fs-micro);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-weight: 600;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-fg);
+  flex-shrink: 0;
+  align-self: flex-start;
+  user-select: none;
+}
+.pillar-chip-overview      { color: var(--muted-fg); }
+.pillar-chip-observability { color: var(--info);    border-color: rgba(74,140,216,.4);  background: rgba(74,140,216,.10); }
+.pillar-chip-evaluation    { color: var(--accent);  border-color: rgba(168,120,216,.4); background: rgba(168,120,216,.10); }
+.pillar-chip-orchestration { color: var(--primary); border-color: rgba(212,164,55,.4);  background: rgba(212,164,55,.10); }
+.pillar-chip-governance    { color: var(--success); border-color: rgba(63,184,127,.4);  background: rgba(63,184,127,.10); }
+/* Panel-level chips inside Analytics (used alongside panel content, not in a banner) */
+.pillar-chip.panel-chip {
+  display: inline-block;
+  margin-bottom: var(--sp-2);
+}
 
 /* Topstats: cost gold, rate-limit amber, live count fg — all mono */
 #topstats {
@@ -2020,4 +2189,555 @@ button { font-family: inherit; font-size: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   .hq-card { transition: none; }
+}
+
+/* ── Engagement view ──────────────────────────────────────────────────────── */
+
+/* Nav tab: gold (brand identity) when active */
+#topbar nav button[data-view="engagement"].active {
+  color: var(--primary);
+  background: rgba(212,164,55,.12);
+  border-color: rgba(212,164,55,.5);
+}
+
+/* View container: scrollable column, consistent side padding */
+#view-engagement {
+  flex-direction: column;
+  overflow-y: auto;
+  padding: var(--sp-4);
+  gap: var(--sp-3);
+  align-items: flex-start;
+}
+
+/* Constrain to a readable width — no full-bleed wall of paths */
+.eng-panel {
+  width: 100%;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* ── Header row: name + acting/observe-only badge ── */
+.eng-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.eng-name {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+/* Pill badge — monospace, uppercase micro label */
+.eng-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
+
+/* acting: green — controllable harness is present */
+.eng-badge-acting {
+  color: var(--success);
+  background: rgba(63,184,127,.12);
+  border-color: rgba(63,184,127,.4);
+}
+
+/* observe-only: amber — foreign harness, no act surface */
+.eng-badge-observe {
+  color: var(--warning);
+  background: rgba(224,162,58,.12);
+  border-color: rgba(224,162,58,.4);
+}
+
+/* ── Identity row (handle / email) ── */
+.eng-identity {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-top: calc(var(--sp-1) * -1);  /* pull up slightly under the header */
+}
+
+.eng-identity-handle {
+  font-size: var(--fs-small);
+  color: var(--muted-fg);
+  font-weight: 500;
+}
+
+.eng-identity-email {
+  font-size: var(--fs-micro);
+  color: var(--muted-fg);
+  opacity: 0.65;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ── Tier groups stack ── */
+.eng-tiers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* Each tier is a native <details> for keyboard-accessible collapse */
+.eng-tier {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Summary row: arrow indicator + label + count badge + policy chip */
+.eng-tier-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--fg);
+  list-style: none;   /* Firefox */
+  user-select: none;
+  min-height: 44px;   /* touch target floor */
+  transition: background 0.12s;
+}
+
+/* Suppress WebKit default marker */
+.eng-tier-summary::-webkit-details-marker { display: none; }
+
+.eng-tier-summary:hover { background: var(--muted); }
+
+/* Focus ring: visible for keyboard navigation */
+.eng-tier-summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+/* CSS-only collapse arrow — right-pointing, rotates down when open.
+   Pure border-trick: no SVG dep, no emoji. */
+.eng-tier-summary::before {
+  content: '';
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--muted-fg);
+  transition: transform 0.15s ease;
+}
+
+details.eng-tier[open] > .eng-tier-summary::before {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eng-tier-summary::before { transition: none; }
+}
+
+.eng-tier-label {
+  flex: 1;
+}
+
+/* Small monospace count pill — mirrors the pattern on tool-chip-badge */
+.eng-tier-count {
+  font-size: var(--fs-micro);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--muted-fg);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  min-width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Policy chip — same pill shape, color-coded by mutation level */
+.eng-policy-chip {
+  font-size: var(--fs-micro);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 500;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* gate: amber — requires approval before writes land */
+.eng-policy-gate {
+  color: var(--warning);
+  background: rgba(224,162,58,.10);
+  border-color: rgba(224,162,58,.35);
+}
+
+/* versioned: blue — writes are tracked, auditable */
+.eng-policy-versioned {
+  color: var(--info);
+  background: rgba(74,140,216,.10);
+  border-color: rgba(74,140,216,.35);
+}
+
+/* readonly: muted — no writes permitted */
+.eng-policy-readonly {
+  color: var(--muted-fg);
+  background: var(--muted);
+  border-color: var(--border);
+}
+
+/* Expanded body: bordered separator from the summary */
+.eng-tier-body {
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  border-top: 1px solid var(--border);
+}
+
+/* Root paths list */
+.eng-roots-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eng-root-item {
+  display: flex;
+  align-items: center;
+}
+
+/* Monospace path — matches the path rendering in tool-chip tooltips/dataDirs */
+.eng-root-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--fs-micro);
+  color: var(--muted-fg);
+  word-break: break-all;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.eng-tier-empty {
+  font-size: var(--fs-micro);
+  color: var(--muted-fg);
+  opacity: 0.55;
+  padding-top: var(--sp-1);
+  font-style: italic;
+}
+
+/* ── Experiments view ─────────────────────────────────────────────────────── */
+
+/* Nav tab: accent/purple when active (same pillar as Guardrails) */
+#topbar nav button[data-view="experiments"].active {
+  color: var(--accent);
+  background: rgba(168,120,216,.12);
+  border-color: rgba(168,120,216,.5);
+}
+
+/* View container — matches analytics layout exactly */
+#view-experiments {
+  flex-direction: column;
+  padding: var(--sp-4);
+  overflow-y: auto;
+}
+
+/* Page header — title only; keeps vertical rhythm with the pillar banner above */
+.exp-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-1);
+}
+
+.exp-header-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+
+/* Outcomes table */
+.exp-table-wrap { overflow-x: auto; }
+
+.exp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-small);
+}
+
+.exp-table th {
+  text-align: left;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-fg);
+  padding: 4px var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.exp-table td {
+  padding: 5px var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--fg);
+  vertical-align: middle;
+}
+
+.exp-table tr:last-child td { border-bottom: none; }
+.exp-table tr:hover td { background: rgba(255,255,255,.02); }
+
+/* Semantic value coloring in outcomes table */
+.exp-val-mono  { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.exp-val-yes   { color: var(--success); font-weight: 600; }
+.exp-val-no    { color: var(--muted-fg); }
+.exp-val-warn  { color: var(--warning); font-weight: 600; }
+.exp-val-dash  { color: var(--muted-fg); opacity: 0.45; }
+.exp-val-ctx   { color: var(--warning); }
+
+/* Champion vs Challenger unit cards */
+.exp-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--sp-2);
+}
+
+.exp-unit-card {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: var(--sp-2) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.12s;
+}
+.exp-unit-card:hover { border-color: #2f3640; }
+
+.exp-unit-name {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--fg);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exp-unit-n {
+  font-size: var(--fs-micro);
+  color: var(--muted-fg);
+}
+
+/* Verdict bar — badge + rationale */
+.exp-verdict-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--muted);
+  border-radius: 8px;
+}
+
+.exp-verdict-badge {
+  font-size: var(--fs-small);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 3px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* Color is not the only signal — verdict word is always present in the badge */
+.exp-verdict-badge--promote { color: var(--success);     background: rgba(63,184,127,.12);  border: 1px solid rgba(63,184,127,.30); }
+.exp-verdict-badge--hold    { color: var(--warning);     background: rgba(224,162,58,.12);  border: 1px solid rgba(224,162,58,.30); }
+.exp-verdict-badge--reject  { color: var(--destructive); background: rgba(224,86,86,.12);   border: 1px solid rgba(224,86,86,.30); }
+
+.exp-verdict-rationale {
+  font-size: var(--fs-small);
+  color: var(--muted-fg);
+  line-height: 1.4;
+  flex: 1;
+}
+
+/* Picker row — champion / challenger unit selects (stable; never rebuilt) */
+.exp-cc-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-1) 0;
+}
+
+.exp-cc-picker-group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+/* Micro-label matching the an-panel-title / exp-cc-role cadence */
+.exp-cc-picker-label {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted-fg);
+  white-space: nowrap;
+}
+
+/* Champion vs Challenger two-card comparison */
+.exp-cc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+
+.exp-cc-card {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-top-width: 2px;
+  border-radius: 10px;
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+/* Top-edge accent distinguishes champion (gold) from challenger (blue) */
+.exp-cc-card--champion   { border-top-color: var(--primary); }
+.exp-cc-card--challenger { border-top-color: var(--info); }
+
+.exp-cc-role {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.exp-cc-card--champion   .exp-cc-role { color: var(--primary); }
+.exp-cc-card--challenger .exp-cc-role { color: var(--info); }
+
+.exp-cc-unit {
+  font-size: var(--fs-small);
+  font-weight: 600;
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exp-cc-n {
+  font-size: var(--fs-micro);
+  color: var(--muted-fg);
+  margin-bottom: var(--sp-1);
+}
+
+.exp-cc-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.exp-cc-metric-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+}
+
+.exp-cc-metric-label {
+  flex: 1;
+  color: var(--muted-fg);
+  font-size: var(--fs-small);
+  white-space: nowrap;
+}
+
+.exp-cc-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 600;
+  font-size: var(--fs-small);
+  color: var(--fg);
+  flex-shrink: 0;
+}
+
+/* Delta annotation on challenger metrics — word label accompanies color */
+.exp-cc-delta {
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: right;
+}
+
+.exp-cc-delta--better { color: var(--success); }
+.exp-cc-delta--worse  { color: var(--destructive); }
+.exp-cc-delta--same   { color: var(--muted-fg); }
+
+/* Eval / Replay Set list */
+.exp-replay-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.exp-replay-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-2);
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: var(--fs-small);
+  min-height: 32px;
+}
+
+.exp-replay-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--fs-micro);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.exp-replay-project {
+  color: var(--fg);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.exp-replay-baseline {
+  font-size: var(--fs-micro);
+  color: var(--muted-fg);
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* Narrow: stack champion/challenger cards vertically */
+@media (max-width: 600px) {
+  .exp-cc-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exp-unit-card { transition: none; }
+}
+
+.eng-error {
+  font-size: var(--fs-small);
+  color: var(--destructive);
+  padding: var(--sp-3);
 }

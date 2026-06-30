@@ -7,6 +7,7 @@ Before starting any substantive task here, pause and scan what's available — s
 - UI / styling / layout / aesthetics → `frontend-design` skill (this is the miss this project was built to catch).
 - New feature / behavior change → `brainstorming` before implementing; `writing-plans` then `subagent-driven-development` to execute.
 - Bug / failing test / unexpected behavior → `systematic-debugging` before proposing fixes.
+- Multi-perspective / source-verified research → `storm-research` skill (Stanford STORM: five expert lenses → contradiction map → cited HTML briefing with adversarial primary-source verification). Reach for it on research tasks where viewpoints and fact-checking matter; overkill for a simple factual lookup.
 - 2+ independent workstreams → dispatch subagents in parallel.
 - When delegating to subagents, tell them which skill to use rather than hand-speccing everything.
 If you notice (or the user points out) that a capability should have been used and wasn't, treat that as a defect worth fixing — both in the moment and, where possible, by adding a guard (CLAUDE.md note, hook, or a dashboard signal) so it's caught automatically next time.
@@ -30,6 +31,7 @@ If you notice (or the user points out) that a capability should have been used a
 - **XSS discipline (non-negotiable):** all user/file-derived data (paths, labels, diffs, commit messages) goes through `textContent` / `createElement`. Never `innerHTML` with data; `innerHTML = ''` to clear is the only allowed use.
 - **Design system:** the house palette/aesthetic is realized in `web/styles.css` (the house design tokens). Spacing uses the `--sp-1..4` scale. Do UI work via the `frontend-design` skill.
 - Tests are isolated via env-overridable paths (`GLMPS_*` env vars in `server/lib/paths.js`); never read the user's real `~/.claude` / `~/.gemini` in tests.
+- **Dev/prod separation:** before editing, classify the file (dev vs a prod surface: live trading install, published mirror, FROZEN research files, the running service + real state, secrets, `main`). Prod is built-into-a-copy/generated, never hand-edited; dev→prod crosses a gate. Rules + enforcement (zones/scope-guard, `permissions.deny`, `acceptance.md`/`prod.allow`): `docs/dev-prod-separation.md`.
 
 ## graphify
 
@@ -40,3 +42,25 @@ Rules:
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+
+## Agent-poisoning safeguards
+
+This project defends against AI-agent poisoning (injected content becoming
+persisted state or an executed job). See `docs/agent-poisoning-safeguards.md` for
+the threat model and the full list. Key behaviors to know when working here:
+- Backlog tickets are poison-scanned at intake (`server/lib/poison-scan.js`);
+  flagged ones are `quarantined` and the queue runner will not auto-launch them.
+  Release one with `POST /api/backlog/:id/approve` (not a generic PATCH).
+- The file API denies reading/writing credential/secret files even inside an
+  allowed root; `/api/graph/rebuild` only accepts allowlisted roots.
+- `GET /api/memory/scan` scans memory dirs for injected entries + drift.
+- A global PreToolUse hook (`hooks/live-install-guard.js`) blocks writes into the
+  live trading install; bypass a deliberate deploy with `GLMPS_ALLOW_LIVE_INSTALL=1`
+  or a `live-install.allow` file in cwd.
+
+## Discord → ticket handoff
+
+When handing a Discord message to the backlog instead of answering it inline,
+file the ticket with `origin: { via:'discord', chatId, messageId, user }` and do
+NOT also reply inline — the launched session owns the single reply. See
+`docs/discord-ticket-handoff.md`.

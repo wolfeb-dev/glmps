@@ -44,6 +44,41 @@ test('GET /api/outcomes/summary aggregates by taskClass', async () => {
   });
 });
 
+test('GET /api/replay returns empty set when none registered', async () => {
+  await withServer(async ({ get }) => {
+    const r = await get('/api/replay');
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body.tasks, []);
+  });
+});
+
+test('GET /api/replay lists the registered eval/replay tasks', async () => {
+  const stateDir = tmp('mc-state-');
+  fs.mkdirSync(path.join(stateDir, 'replay'), { recursive: true });
+  fs.writeFileSync(path.join(stateDir, 'replay', 'tasks.json'),
+    JSON.stringify({ tasks: [{ id: 't1', project: 'p', promptFile: null, baseline: null }] }));
+  const env = { ...process.env, GLMPS_STATE_DIR: stateDir };
+  const h = await startServer({ port: 0, env, configFile: path.join(stateDir, 'no-config.json') });
+  try {
+    const r = await fetch(`http://127.0.0.1:${h.port}/api/replay`);
+    assert.equal(r.status, 200);
+    const body = await r.json();
+    assert.equal(body.tasks.length, 1);
+    assert.equal(body.tasks[0].id, 't1');
+  } finally { await h.close?.(); fs.rmSync(stateDir, { recursive: true, force: true }); }
+});
+
+test('GET /api/promotion returns a verdict over per-unit aggregates', async () => {
+  await withServer(async ({ get }) => {
+    const r = await get('/api/promotion');
+    assert.equal(r.status, 200);
+    assert.equal(r.body.available, true);
+    assert.equal(r.body.champion.unit, 'session'); // n=2, the incumbent
+    assert.equal(r.body.challenger.unit, 'trade');  // n=1
+    assert.ok(['promote', 'hold', 'reject'].includes(r.body.verdict));
+  });
+});
+
 test('POST /api/outcomes/finalize appends idempotently; 400 without session', async () => {
   await withServer(async ({ get, post }) => {
     const r1 = await post('/api/outcomes/finalize', { session: 'newsess' });

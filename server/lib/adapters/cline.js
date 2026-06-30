@@ -15,6 +15,7 @@ import { classifyGit } from '../git-events.js';
 
 export const id = 'cline';
 export const displayName = 'Cline';
+export const controllable = false;
 
 // Known Cline-family extension IDs and their display names.
 const EXTENSIONS = [

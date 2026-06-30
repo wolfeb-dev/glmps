@@ -77,3 +77,30 @@ test('env overrides win and ensureStateDirs creates subdirs', () => {
   for (const d of ['state', 'status', 'requests', 'undo'])
     assert.ok(fs.existsSync(path.join(tmp, d)), d);
 });
+
+test('profile supplies stateDir/claudeDir/repoRoots when env is absent', () => {
+  const profile = {
+    stateDir: '/eng/state', assetsDir: '/eng/assets',
+    repoRoots: ['/eng/api', '/eng/web'],
+    harness: { claudeDir: '/eng/claude', antigravityDir: null, opencodeDir: null, codexDir: null, hermesDir: null, vscodeStorageDir: null },
+  };
+  const P = getPaths({}, profile);
+  assert.equal(P.stateDir, '/eng/state');
+  assert.equal(P.claudeDir, '/eng/claude');
+  assert.deepEqual(P.repoRoots, ['/eng/api', '/eng/web']);
+  assert.equal(P.assetsDir, '/eng/assets');
+});
+
+test('env overrides profile (env wins)', () => {
+  const profile = { stateDir: '/eng/state', harness: { claudeDir: '/eng/claude' } };
+  const P = getPaths({ GLMPS_STATE_DIR: '/env/state', GLMPS_CLAUDE_DIR: '/env/claude' }, profile);
+  assert.equal(P.stateDir, '/env/state');
+  assert.equal(P.claudeDir, '/env/claude');
+});
+
+test('no profile => identical behavior to before (repoRoots empty)', () => {
+  const P = getPaths({});
+  assert.deepEqual(P.repoRoots, []);
+  assert.equal(P.profile, null);
+  assert.ok(P.claudeDir.endsWith(path.join('.claude')) || P.claudeDir.includes('.claude'));
+});

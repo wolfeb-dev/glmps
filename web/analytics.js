@@ -1,8 +1,9 @@
 // web/analytics.js
-// Analytics view — consumes GET /api/usage and renders hand-rolled charts
-// (CSS bars + inline SVG donut). ALL DOM via createElement/createElementNS + textContent.
+// Analytics view (Observability pillar) — consumes GET /api/usage and renders
+// hand-rolled charts (CSS bars + inline SVG donut).
+// ALL DOM via createElement/createElementNS + textContent.
 // No charting library, no innerHTML with data (only innerHTML='' to clear).
-// Usage panel (from budget.js) is rendered at the top of this view.
+// Harness Quality (Evaluation pillar) was moved to web/experiments.js.
 
 import {
   groupByModel,
@@ -14,7 +15,6 @@ import {
 } from './analytics-calc.js';
 
 import { renderUsage } from './budget.js';
-import { renderOutcomes } from './outcomes.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -38,6 +38,17 @@ function svg(tag, attrs) {
     for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
   }
   return node;
+}
+
+// ── AgentOps panel chip ──────────────────────────────
+// Analytics is Observability: usage/budget data.
+// Harness Quality (Evaluation pillar) moved to the Experiments view.
+// The view-level banner chip is now supplied by the PILLARS map in app.js.
+function insertPanelChip(container, label, suffix) {
+  const chip = document.createElement('span');
+  chip.className = `pillar-chip pillar-chip-${suffix} panel-chip`;
+  chip.textContent = label;
+  container.insertBefore(chip, container.firstChild);
 }
 
 // ── formatting helpers ──────────────────────────────
@@ -352,10 +363,11 @@ export async function renderAnalytics(container) {
 
   const root = el('div', 'an-root');
 
-  // 0) Usage panel — top of Analytics
+  // 0) Usage panel — top of Analytics (Observability pillar)
   const usageSection = el('div');
   root.appendChild(usageSection);
   renderUsage(usageSection, budgetData ?? { available: false });
+  insertPanelChip(usageSection, 'Observability', 'observability');
 
   if (!analyticsData) {
     root.appendChild(el('div', 'an-empty', 'Failed to load usage data.'));
@@ -386,11 +398,6 @@ export async function renderAnalytics(container) {
   bottomRow.appendChild(buildRanked('Top projects', groupByProject(perSession), { barClass: 'an-rank-fill-blue', limit: 8 }));
   bottomRow.appendChild(buildRanked('By model', groupByModel(perSession), { barClass: 'an-rank-fill-gold', limit: 8 }));
   root.appendChild(bottomRow);
-
-  // 5) Harness Quality — one KPI card per task class from /api/outcomes/summary
-  const outcomesWrap = el('div');
-  root.appendChild(outcomesWrap);
-  await renderOutcomes(outcomesWrap);
 
   container.appendChild(root);
 }

@@ -62,6 +62,33 @@ test('alternate data stream paths are rejected', () => {
   assert.throws(() => api.save(f + ':hidden', 'x', null), /not allowed/i);
 });
 
+test('credential/secret files are denied for read and write even inside a root', () => {
+  const root = mkTmp();
+  const undoDir = mkTmp();
+  const api = new FileApi([root], undoDir);
+  for (const name of ['.credentials.json', 'id_rsa', 'server.pem', 'private.key', '.env']) {
+    const f = path.join(root, name);
+    fs.writeFileSync(f, 'secret');
+    assert.throws(() => api.read(f), /not allowed/i, `${name} read should be denied`);
+    assert.throws(() => api.save(f, 'x', null, { force: true }), /not allowed/i, `${name} write should be denied`);
+  }
+});
+
+test('files under a sensitive directory segment (.ssh/.aws) are denied', () => {
+  const root = mkTmp();
+  const undoDir = mkTmp();
+  fs.mkdirSync(path.join(root, '.ssh'), { recursive: true });
+  const f = path.join(root, '.ssh', 'config');
+  fs.writeFileSync(f, 'Host *');
+  const api = new FileApi([root], undoDir);
+  assert.throws(() => api.read(f), /not allowed/i);
+});
+
+test('ordinary editable files (CLAUDE.md) remain allowed', () => {
+  const { api, f } = setup();
+  assert.doesNotThrow(() => api.read(f));
+});
+
 test('undo is one-level: second consecutive undo throws', () => {
   const { api, f } = setup();
   const { hash } = api.read(f);

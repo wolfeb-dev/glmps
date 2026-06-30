@@ -6,6 +6,11 @@ companion/*.vsix
 # Local runtime config (copy config.example.json -> config.json and edit)
 config.json
 
+# Local Claude config (machine-specific; may carry absolute paths) — never publish
+.claude/settings.local.json
+.claude/skills/
+.claude/hooks/
+
 # OS cruft
 .DS_Store
 Thumbs.db

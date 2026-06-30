@@ -1302,6 +1302,7 @@ export async function fillProjectNav(railEl, { onSelectProject = null, selectedP
   if (onSelectProject) {
     const allSelected = selectedProject == null || selectedProject === 'all';
     const allRow = el('div', 'dash-roster-row dash-nav-row dash-nav-all dash-nav-selectable' + (allSelected ? ' is-focused' : ''));
+    allRow.dataset.projKey = 'all'; // lets callers swap the active highlight in place (no re-render)
     allRow.setAttribute('role', 'listitem');
     allRow.tabIndex = 0;
     const allInner = el('div', 'dash-roster-inner');
@@ -1324,6 +1325,7 @@ export async function fillProjectNav(railEl, { onSelectProject = null, selectedP
     const color = _projectColor(proj.key ?? proj.name ?? '');
     const isSelected = !!onSelectProject && selectedProject === (proj.key ?? proj.name);
     const row = el('div', 'dash-roster-row dash-nav-row' + (onSelectProject ? ' dash-nav-selectable' : '') + (isSelected ? ' is-focused' : ''));
+    row.dataset.projKey = String(proj.key ?? proj.name ?? ''); // for in-place highlight swap
     row.setAttribute('role', 'listitem');
     row.style.setProperty('--session-color', color);
     if (onSelectProject) row.tabIndex = 0;

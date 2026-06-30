@@ -88,6 +88,22 @@ test('SSE sends a hello event carrying the server buildId on connect', async () 
   } finally { await srv.close(); }
 });
 
+test('GET /api/engagement returns 200 JSON with tiers object', async () => {
+  const { env } = mkEnv();
+  const srv = await startServer({ port: 0, pollMs: 1000, env });
+  try {
+    const base = `http://127.0.0.1:${srv.port}`;
+    const r = await fetch(`${base}/api/engagement`);
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get('content-type') || '', /application\/json/);
+    const body = await r.json();
+    assert.ok(body.tiers && typeof body.tiers === 'object', 'tiers must be an object');
+    assert.ok('artifact' in body.tiers, 'tiers.artifact missing');
+    assert.ok('brain' in body.tiers, 'tiers.brain missing');
+    assert.ok('ephemeral' in body.tiers, 'tiers.ephemeral missing');
+  } finally { await srv.close(); }
+});
+
 test('SPA fallback serves index.html for client-side routes', async () => {
   const { env } = mkEnv();
   const srv = await startServer({ port: 0, pollMs: 1000, env });
@@ -219,6 +235,31 @@ test('event history replays after server restart (offsets at EOF)', async () => 
   } finally { await srv2.close(); }
 });
 
+test('POST /api/runner/run returns 409 observe-only when no controllable harness installed', async () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-gate-'));
+  tmpDirs.push(tmp);
+  // GLMPS_CLAUDE_DIR must not exist so claude-code detect() returns installed=false
+  // (the only adapter with controllable=true). No GLMPS_ALLOW_ACT, no GLMPS_RUNNER_DRYRUN.
+  const env = {
+    GLMPS_CLAUDE_DIR:        path.join(tmp, 'no-claude'),
+    GLMPS_ANTIGRAVITY_DIR:   path.join(tmp, 'ag'),
+    GLMPS_STATE_DIR:         path.join(tmp, 'state'),
+    GLMPS_GEMINI_TMP_DIR:    path.join(tmp, 'gemini-tmp'),
+    GLMPS_VSCODE_STORAGE_DIR: path.join(tmp, 'vscode-storage'),
+    GLMPS_AGY_CLI_DIR:       path.join(tmp, 'agy-cli'),
+    GLMPS_CODEX_DIR:         path.join(tmp, 'codex'),
+    GLMPS_HERMES_DIR:        path.join(tmp, 'hermes'),
+    GLMPS_OPENCODE_DIR:      path.join(tmp, 'opencode'),
+  };
+  const srv = await startServer({ port: 0, pollMs: 1000, env });
+  try {
+    const r = await fetch(`http://127.0.0.1:${srv.port}/api/runner/run/any-id`, { method: 'POST' });
+    assert.equal(r.status, 409);
+    const body = await r.json();
+    assert.equal(body.error, 'observe-only');
+  } finally { await srv.close(); }
+});
+
 // ── genericLive pure-function tests ──────────────────────────────────────────
 
 const cfgStub = { idleThresholdMs: 60_000 }; // heartbeat window = 600s = 10min
@@ -256,4 +297,28 @@ test('genericLive: db exactly at 8h boundary → live=true', () => {
   const heartbeatMs = now - 30_000;
   const mtimeMs = now - 8 * 3_600_000;    // exactly at 8h boundary
   assert.equal(genericLive(heartbeatMs, mtimeMs, now, cfgStub), true);
+});
+
+test('GLMPS_PROFILE: engagement profile loads at bootstrap and surfaces via /api/engagement', async () => {
+  const { env } = mkEnv();
+  // Write a minimal profile file in a dedicated temp dir (registered for cleanup).
+  const profileTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-profile-'));
+  tmpDirs.push(profileTmp);
+  const repoRoot = path.join(profileTmp, 'acme-repo');
+  fs.mkdirSync(repoRoot, { recursive: true });
+  const profileFile = path.join(profileTmp, 'glmps.profile.json');
+  fs.writeFileSync(profileFile, JSON.stringify({ engagement: 'acme-test', repoRoots: [repoRoot] }));
+
+  const srv = await startServer({ port: 0, pollMs: 1000, env: { ...env, GLMPS_PROFILE: profileFile } });
+  try {
+    const base = `http://127.0.0.1:${srv.port}`;
+    const r = await fetch(`${base}/api/engagement`);
+    assert.equal(r.status, 200);
+    const body = await r.json();
+    assert.equal(body.engagement, 'acme-test', 'engagement name must match profile');
+    assert.ok(
+      Array.isArray(body.tiers?.artifact?.roots) && body.tiers.artifact.roots.includes(repoRoot),
+      `tiers.artifact.roots must include ${repoRoot}; got ${JSON.stringify(body.tiers?.artifact?.roots)}`,
+    );
+  } finally { await srv.close(); }
 });

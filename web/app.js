@@ -1,5 +1,5 @@
 // web/app.js
-import { getState, onEvents, getLearning, addIdea, learningAction, setLearningConfig, fetchBudget } from './api.js';
+import { getState, onEvents, getLearning, addIdea, learningAction, setLearningConfig, fetchBudget, fetchEngagement } from './api.js';
 import { toolColorClass, mostRecentSessionId } from './grid.js';
 import { fillRoster } from './agents.js';
 import { mountLauncher } from './launcher.js';
@@ -16,12 +16,65 @@ let dashboardMod = null;
 let mapMod = null;
 let boardMod = null;
 let boardCleanup = null;
+let engagementMod = null;
+let experimentsMod = null;
 let refreshTimer = null;
 let lastState = null;
 let serverBuildId = null;      // first SSE 'hello' wins; a different one on reconnect => server restarted
 let detailCleanup = null;
 let historyCleanup = null;
 let renderSeq = 0;
+
+// ── AgentOps pillar classification ───────────────────────────────────────────
+// SINGLE SOURCE OF TRUTH for which view belongs to which pillar.
+// To reassign a view: change its entry here AND move its <button> in index.html.
+// To suppress the view-level banner chip for a view: set label to null.
+//   • grid: master-detail layout that fills the whole view; still shows chip in banner.
+const PILLARS = {
+  dashboard:   { label: 'Overview',      suffix: 'overview'      },
+  map:         { label: 'Observability', suffix: 'observability' },
+  grid:        { label: 'Observability', suffix: 'observability' },
+  history:     { label: 'Observability', suffix: 'observability' },
+  detail:      { label: 'Observability', suffix: 'observability' }, // full-page session detail
+  learning:    { label: 'Evaluation',    suffix: 'evaluation'    },
+  experiments: { label: 'Evaluation',    suffix: 'evaluation'    },
+  analytics:   { label: 'Observability', suffix: 'observability' }, // usage/budget metrics
+  kanban:      { label: 'Orchestration', suffix: 'orchestration' },
+  engagement:  { label: 'Governance',    suffix: 'governance'    },
+};
+
+// Updates the #pillar-banner chip below the topbar when the active view changes.
+// Called from showView(). All content via textContent — never innerHTML with data.
+function updatePillarBanner(viewName) {
+  const banner = document.getElementById('pillar-banner');
+  if (!banner) return;
+  banner.textContent = ''; // clear — safe: no data, just resets static chip
+  const p = PILLARS[viewName];
+  if (!p?.label) return; // analytics + unknown views: no banner chip
+  const chip = document.createElement('span');
+  chip.className = `pillar-chip pillar-chip-${p.suffix}`;
+  chip.textContent = p.label;
+  banner.appendChild(chip);
+}
+
+// ── Dropdown nav helpers (function declarations hoist — called by showView) ──
+function closeAllDropdowns() {
+  for (const p of document.querySelectorAll('.nav-pillar.is-open')) {
+    p.classList.remove('is-open');
+    const t = p.querySelector('.nav-pillar-trigger');
+    if (t) t.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function updateNavActivePillar(viewName) {
+  for (const t of document.querySelectorAll('.nav-pillar-trigger')) {
+    t.classList.remove('active-pillar');
+  }
+  const p = PILLARS[viewName];
+  if (!p?.suffix) return;
+  const pillarEl = document.querySelector(`.nav-pillar-${p.suffix}`);
+  pillarEl?.querySelector('.nav-pillar-trigger')?.classList.add('active-pillar');
+}
 
 // ── Toast ────────────────────────────────────────
 const toastEl = document.getElementById('toast');
@@ -39,12 +92,15 @@ window.addEventListener('mc-toast', e => toast(e.detail));
 // ── View switching ───────────────────────────────
 function showView(name) {
   currentView = name;
+  closeAllDropdowns();
   for (const sec of document.querySelectorAll('.view')) sec.classList.add('hidden');
   const target = document.getElementById(`view-${name}`);
   if (target) target.classList.remove('hidden');
-  for (const btn of document.querySelectorAll('#topbar nav button')) {
+  for (const btn of document.querySelectorAll('#topbar nav button[data-view]')) {
     btn.classList.toggle('active', btn.dataset.view === name);
   }
+  updateNavActivePillar(name);
+  updatePillarBanner(name);
 }
 
 // ── Embedded detail (inside master-detail) ────────
@@ -328,24 +384,83 @@ function updateAnalyticsBadge(data) {
 function updateLearningBadge(data) {
   const btn = document.querySelector('#topbar nav button[data-view="learning"]');
   if (!btn) return;
-  let dot = btn.querySelector('.learning-nav-dot');
+  let dot = btn.querySelector('.nav-item-dot');
   const items = Array.isArray(data?.items) ? data.items : [];
   const pending = items.filter(i => i.status === 'pending').length;
   if (pending === 0) {
     if (dot) dot.style.display = 'none';
+    updatePillarDots();
     return;
   }
   if (!dot) {
     dot = document.createElement('span');
-    dot.className = 'learning-nav-dot';
+    dot.className = 'nav-item-dot';
+    dot.setAttribute('aria-hidden', 'true');
     btn.appendChild(dot);
   }
   dot.style.display = '';
   dot.title = `${pending} learning item${pending === 1 ? '' : 's'} awaiting review`;
+  updatePillarDots();
+}
+
+// ── Kanban nav dot — backlog items needing attention ──────────────────────
+// Counts state='queued' (unstarted) and state='held' (parked/deferred).
+async function updateKanbanDot() {
+  const btn = document.querySelector('#topbar nav button[data-view="kanban"]');
+  if (!btn) return;
+  let count = 0;
+  try {
+    const res = await fetch('/api/backlog');
+    if (res.ok) {
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : [];
+      count = items.filter(i => i.state === 'queued' || i.state === 'held').length;
+    }
+  } catch { /* server unreachable */ }
+
+  let dot = btn.querySelector('.nav-item-dot');
+  if (count === 0) {
+    if (dot) dot.style.display = 'none';
+    updatePillarDots();
+    return;
+  }
+  if (!dot) {
+    dot = document.createElement('span');
+    dot.className = 'nav-item-dot';
+    dot.setAttribute('aria-hidden', 'true');
+    btn.appendChild(dot);
+  }
+  dot.style.display = '';
+  dot.title = `${count} backlog item${count === 1 ? '' : 's'} queued`;
+  updatePillarDots();
+}
+
+// ── Pillar-level dot — bubbles up from child view dots ────────────────────
+function updatePillarDots() {
+  for (const pillarEl of document.querySelectorAll('.nav-pillar')) {
+    const trigger = pillarEl.querySelector('.nav-pillar-trigger');
+    if (!trigger) continue;
+    const activeDots = [...pillarEl.querySelectorAll('.nav-item-dot')]
+      .filter(d => d.style.display !== 'none');
+    let pillarDot = trigger.querySelector('.nav-pillar-dot');
+    if (activeDots.length > 0) {
+      if (!pillarDot) {
+        pillarDot = document.createElement('span');
+        pillarDot.className = 'nav-pillar-dot';
+        pillarDot.setAttribute('aria-hidden', 'true');
+        trigger.appendChild(pillarDot);
+      }
+      pillarDot.style.display = '';
+      trigger.title = activeDots.map(d => d.title).filter(Boolean).join('; ');
+    } else {
+      if (pillarDot) pillarDot.style.display = 'none';
+      trigger.title = '';
+    }
+  }
 }
 
 // ── Routing (History API, clean URLs) ────────────
-const NAV_VIEWS = ['dashboard', 'history', 'analytics', 'learning', 'map', 'grid', 'kanban'];
+const NAV_VIEWS = ['dashboard', 'history', 'analytics', 'learning', 'experiments', 'map', 'grid', 'kanban', 'engagement'];
 
 function pathFor(view, sessionId) {
   switch (view) {
@@ -353,10 +468,12 @@ function pathFor(view, sessionId) {
     case 'detail':    return sessionId ? `/session/${encodeURIComponent(sessionId)}` : '/detail';
     case 'history':   return '/history';
     case 'analytics': return '/analytics';
-    case 'learning':  return '/learning';
-    case 'map':       return '/map';
-    case 'kanban':    return sessionId ? `/kanban/${encodeURIComponent(sessionId)}` : '/kanban';
-    default:          return '/dashboard';
+    case 'learning':     return '/learning';
+    case 'experiments':  return '/experiments';
+    case 'map':          return '/map';
+    case 'kanban':      return sessionId ? `/kanban/${encodeURIComponent(sessionId)}` : '/kanban';
+    case 'engagement':  return '/engagement';
+    default:            return '/dashboard';
   }
 }
 
@@ -379,7 +496,9 @@ async function enterView(view, sessionId = null) {
   if (view === 'learning')  { learningMod  ??= await import('./learning.js').catch(() => null);  if (!learningMod)  { toast('Learning not built yet'); return; } }
   if (view === 'map')       { mapMod       ??= await import('./map.js').catch(() => null);       if (!mapMod)       { toast('Map not built yet'); return; } }
   if (view === 'detail')    { detailMod    ??= await import('./detail.js').catch(() => null);    if (!detailMod)    { toast('Detail view not built yet'); return; } }
-  if (view === 'kanban')    { boardMod     ??= await import('./board.js').catch(() => null);     if (!boardMod)     { toast('Kanban not built yet'); return; } }
+  if (view === 'kanban')      { boardMod      ??= await import('./board.js').catch(() => null);      if (!boardMod)      { toast('Kanban not built yet'); return; } }
+  if (view === 'engagement')  { engagementMod  ??= await import('./engagement.js').catch(() => null);  if (!engagementMod)  { toast('Engagement not built yet');   return; } }
+  if (view === 'experiments') { experimentsMod ??= await import('./experiments.js').catch(() => null); if (!experimentsMod) { toast('Experiments not built yet'); return; } }
 
   // Clean up listeners when leaving a view
   if (view !== 'detail') { detailCleanup?.(); detailCleanup = null; }
@@ -416,6 +535,17 @@ async function enterView(view, sessionId = null) {
     await renderFullDetail(sessionId);
   } else if (view === 'kanban' && boardMod) {
     boardCleanup = await boardMod.renderBacklog(document.getElementById('view-kanban'), handlers);
+  } else if (view === 'engagement' && engagementMod) {
+    const container = document.getElementById('view-engagement');
+    try {
+      const data = await fetchEngagement();
+      engagementMod.renderEngagement(container, data);
+    } catch { toast('Failed to load engagement data'); }
+  } else if (view === 'experiments' && experimentsMod) {
+    const container = document.getElementById('view-experiments');
+    try {
+      await experimentsMod.renderExperiments(container);
+    } catch { toast('Failed to load experiments data'); }
   }
 }
 
@@ -432,9 +562,89 @@ window.addEventListener('popstate', (e) => {
   enterView(r.view, r.sessionId);
 });
 
-// ── Nav buttons ──────────────────────────────────
-for (const btn of document.querySelectorAll('#topbar nav button')) {
+// ── Nav view buttons — navigate on click ──────────────────────────────────
+for (const btn of document.querySelectorAll('#topbar nav button[data-view]')) {
   btn.addEventListener('click', () => navigate(btn.dataset.view));
+}
+
+// ── Dropdown pillar interactions (hover, click, keyboard, outside-click) ──
+{
+  let navHoverTimer = null;
+
+  function openDropdown(pillarEl) {
+    if (navHoverTimer) { clearTimeout(navHoverTimer); navHoverTimer = null; }
+    closeAllDropdowns();
+    pillarEl.classList.add('is-open');
+    pillarEl.querySelector('.nav-pillar-trigger')?.setAttribute('aria-expanded', 'true');
+  }
+
+  for (const pillarEl of document.querySelectorAll('.nav-pillar')) {
+    const trigger = pillarEl.querySelector('.nav-pillar-trigger');
+    const getItems = () => [...pillarEl.querySelectorAll('.nav-view-btn')];
+
+    // Hover: open immediately, close after a short pause to bridge the gap
+    pillarEl.addEventListener('mouseenter', () => openDropdown(pillarEl));
+    pillarEl.addEventListener('mouseleave', () => {
+      if (navHoverTimer) clearTimeout(navHoverTimer);
+      navHoverTimer = setTimeout(() => closeAllDropdowns(), 150);
+    });
+
+    // Click on trigger: toggle open/closed
+    trigger?.addEventListener('click', (e) => {
+      e.stopPropagation(); // prevent document click from immediately re-closing
+      const isOpen = pillarEl.classList.contains('is-open');
+      closeAllDropdowns();
+      if (!isOpen) openDropdown(pillarEl);
+    });
+
+    // Keyboard on pillar trigger
+    trigger?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        openDropdown(pillarEl);
+        getItems()[0]?.focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        openDropdown(pillarEl);
+        const all = getItems();
+        all[all.length - 1]?.focus();
+      } else if (e.key === 'Escape') {
+        closeAllDropdowns();
+      } else if (e.key === 'ArrowRight') {
+        const pillars = [...document.querySelectorAll('.nav-pillar')];
+        const next = pillars[pillars.indexOf(pillarEl) + 1];
+        if (next) { closeAllDropdowns(); next.querySelector('.nav-pillar-trigger')?.focus(); }
+      } else if (e.key === 'ArrowLeft') {
+        const pillars = [...document.querySelectorAll('.nav-pillar')];
+        const prev = pillars[pillars.indexOf(pillarEl) - 1];
+        if (prev) { closeAllDropdowns(); prev.querySelector('.nav-pillar-trigger')?.focus(); }
+      }
+    });
+
+    // Keyboard on menu items
+    for (const item of getItems()) {
+      item.addEventListener('keydown', (e) => {
+        const all = getItems();
+        const idx = all.indexOf(item);
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          all[idx + 1]?.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (idx === 0) trigger?.focus(); else all[idx - 1]?.focus();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          closeAllDropdowns();
+          trigger?.focus();
+        } else if (e.key === 'Tab') {
+          closeAllDropdowns(); // natural tab focus out; let browser handle movement
+        }
+      });
+    }
+  }
+
+  // Outside click closes all dropdowns
+  document.addEventListener('click', () => closeAllDropdowns());
 }
 
 // ── Boot ─────────────────────────────────────────
@@ -447,6 +657,7 @@ for (const btn of document.querySelectorAll('#topbar nav button')) {
   // Seed the analytics badge on load without navigating to the view
   fetchBudget().then(data => updateAnalyticsBadge(data)).catch(() => {});
   getLearning().then(updateLearningBadge).catch(() => {});
+  updateKanbanDot().catch(() => {});
 
   try {
     const state = await getState();
@@ -469,6 +680,7 @@ for (const btn of document.querySelectorAll('#topbar nav button')) {
     }
     if (payload.type === 'backlog') {
       if (currentView === 'kanban' && boardMod) boardMod.refreshBacklog();
+      updateKanbanDot().catch(() => {});
       return;
     }
     if (payload.type === 'events') {

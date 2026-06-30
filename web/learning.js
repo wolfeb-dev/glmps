@@ -275,7 +275,7 @@ export function renderLearning(root, data, handlers) {
   // Left: title + pending count badge
   const headerLeft = el('div', 'lrn-header-left');
   const headTitle = el('span', 'lrn-header-title');
-  setText(headTitle, 'Learning Queue');
+  setText(headTitle, 'Guardrails Queue');
   headerLeft.appendChild(headTitle);
 
   if (pending.length > 0) {

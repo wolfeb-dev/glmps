@@ -5,6 +5,20 @@ import crypto from 'node:crypto';
 
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 
+// Secret/credential material is never readable or writable through the dashboard
+// file API, even when it lives inside an allowed editing root (the roots include
+// ~/.claude, so .credentials.json would otherwise be exfiltratable, and a
+// poisoned write could plant SSH keys / .env secrets). Basename + path-segment
+// deny, independent of the root allowlist below.
+const DENY_BASENAME = /^(\.credentials\.json|\.env(\..+)?|id_(rsa|dsa|ecdsa|ed25519)(\.pub)?|.+\.(pem|key|ppk|pfx|p12|asc))$/i;
+const DENY_SEGMENT = new Set(['.ssh', '.aws', '.gnupg', '.gpg']);
+
+function isSensitive(resolved) {
+  const base = path.basename(resolved);
+  if (DENY_BASENAME.test(base)) return true;
+  return resolved.toLowerCase().split(/[\\/]/).some(seg => DENY_SEGMENT.has(seg));
+}
+
 export class FileApi {
   constructor(roots, undoDir) {
     this.roots = roots.map(r => path.resolve(r).toLowerCase());
@@ -15,6 +29,7 @@ export class FileApi {
     if (typeof p !== 'string' || !p) throw new Error('Path not allowed: (empty)');
     const resolved = path.resolve(p);
     if (resolved.indexOf(':', 2) !== -1) throw new Error(`Path not allowed: ${resolved}`);
+    if (isSensitive(resolved)) throw new Error(`Path not allowed (sensitive): ${resolved}`);
     const low = resolved.toLowerCase();
     if (!this.roots.some(r => low === r || low.startsWith(r + path.sep)))
       throw new Error(`Path not allowed: ${resolved}`);

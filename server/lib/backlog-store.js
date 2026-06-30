@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { scanTicket } from './poison-scan.js';
 
 const STATES = new Set(['queued', 'held', 'in_progress', 'in_review', 'done', 'cancelled']);
 
@@ -7,7 +8,7 @@ export function emptyState() { return { items: [], paused: false, seq: 0 }; }
 
 function now() { return new Date().toISOString(); }
 
-export function addItem(state, { project, title, prompt, state: itemState, source, priority } = {}) {
+export function addItem(state, { project, title, prompt, state: itemState, source, priority, origin } = {}) {
   const proj = project ?? 'default';
   const ttl  = title ?? '';
   const src  = source ?? 'manual';
@@ -22,16 +23,24 @@ export function addItem(state, { project, title, prompt, state: itemState, sourc
   const seq = state.seq + 1;
   const ts = now();
   const order = state.items.reduce((m, i) => Math.max(m, i.order), 0) + 1;
+  const promptText = (prompt ?? title ?? '').trim();
+  // Poisoning gate: scan the ticket at intake, attach provenance, and quarantine
+  // anything the scanner flags as block-worthy. Quarantined queued items are
+  // skipped by the autonomous runner (pickNextJob) until an operator approves.
+  const provenance = scanTicket({ title: ttl, prompt: promptText, source: src });
   const item = {
     id: `glmps-${seq}`,
     project: proj,
     title: ttl,
-    prompt: (prompt ?? title ?? '').trim(),
+    prompt: promptText,
     state: STATES.has(itemState) ? itemState : 'queued',
     source: src,
     groupId: null, order,
     priority: priority !== undefined ? priority : null,
     sessionId: null, branch: null, prUrl: null,
+    origin: origin ?? null,   // optional handoff context, e.g. { via:'discord', chatId, messageId, user }
+    provenance,
+    quarantined: provenance.quarantined,
     activity: [], createdAt: ts, updatedAt: ts,
   };
   return { state: { ...state, items: [...state.items, item], seq }, item, isNew: true };
@@ -65,6 +74,21 @@ export function applyLabelDelta(state, id, { labels = [], removeLabels = [], com
     if (derived) next.state = derived;
     if (comment) next.activity = [...i.activity, { ts: now(), text: comment }];
     next.updatedAt = now();
+    item = next;
+    return next;
+  });
+  return { state: { ...state, items }, item };
+}
+
+// Operator-only release of a poison-quarantined ticket. Deliberately NOT part of
+// updateItem's PATCHABLE set, so a generic PATCH cannot silently clear the gate;
+// releasing a held ticket is an explicit, logged human action.
+export function approveItem(state, id) {
+  let item = null;
+  const items = state.items.map(i => {
+    if (i.id !== id) return i;
+    const next = { ...i, quarantined: false, updatedAt: now() };
+    next.activity = [...(i.activity || []), { ts: now(), text: 'poison-quarantine approved by operator' }];
     item = next;
     return next;
   });
@@ -116,6 +140,7 @@ export function removeItem(state, id) {
   return { state: { ...state, items }, removed: items.length !== state.items.length };
 }
 
+export function approveItemIn(stateDir, id) { const r = approveItem(load(stateDir), id); save(stateDir, r.state); return r; }
 export function addItemTo(stateDir, input) { const r = addItem(load(stateDir), input); save(stateDir, r.state); return r; }
 export function updateItemIn(stateDir, id, patch) { const r = updateItem(load(stateDir), id, patch); save(stateDir, r.state); return r; }
 export function applyLabelDeltaIn(stateDir, id, delta) { const r = applyLabelDelta(load(stateDir), id, delta); save(stateDir, r.state); return r; }

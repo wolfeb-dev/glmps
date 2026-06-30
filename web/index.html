@@ -14,15 +14,57 @@
       <img class="brand-mark" src="glmps-mark.svg" alt="" width="24" height="24">
       <span class="brand-text">GLMPS</span>
     </span>
-    <nav><button data-view="dashboard" class="active">Dashboard</button>
-         <button data-view="map">Map</button>
-         <button data-view="grid">Detail</button>
-         <button data-view="history">History</button>
-         <button data-view="kanban">Kanban</button>
-         <button data-view="learning">Learning</button>
-         <button data-view="analytics">Analytics</button></nav>
+    <nav>
+      <!-- Dropdown pillar nav. To reassign a view: move its button to a
+           different nav-pillar AND update PILLARS in web/app.js. -->
+      <div class="nav-pillar nav-pillar-overview" data-pillar="overview">
+        <button class="nav-pillar-trigger" type="button"
+                aria-haspopup="true" aria-expanded="false"
+                aria-controls="nav-menu-overview">Overview</button>
+        <div class="nav-dropdown" id="nav-menu-overview" role="menu">
+          <button class="nav-view-btn active" role="menuitem" type="button" data-view="dashboard">Dashboard</button>
+        </div>
+      </div>
+      <div class="nav-pillar nav-pillar-observability" data-pillar="observability">
+        <button class="nav-pillar-trigger" type="button"
+                aria-haspopup="true" aria-expanded="false"
+                aria-controls="nav-menu-observability">Observability</button>
+        <div class="nav-dropdown" id="nav-menu-observability" role="menu">
+          <button class="nav-view-btn" role="menuitem" type="button" data-view="map">Map</button>
+          <button class="nav-view-btn" role="menuitem" type="button" data-view="grid">Detail</button>
+          <button class="nav-view-btn" role="menuitem" type="button" data-view="history">History</button>
+          <button class="nav-view-btn" role="menuitem" type="button" data-view="analytics">Analytics</button>
+        </div>
+      </div>
+      <div class="nav-pillar nav-pillar-evaluation" data-pillar="evaluation">
+        <button class="nav-pillar-trigger" type="button"
+                aria-haspopup="true" aria-expanded="false"
+                aria-controls="nav-menu-evaluation">Evaluation</button>
+        <div class="nav-dropdown" id="nav-menu-evaluation" role="menu">
+          <button class="nav-view-btn" role="menuitem" type="button" data-view="learning">Guardrails</button>
+          <button class="nav-view-btn" role="menuitem" type="button" data-view="experiments">Experiments</button>
+        </div>
+      </div>
+      <div class="nav-pillar nav-pillar-orchestration" data-pillar="orchestration">
+        <button class="nav-pillar-trigger" type="button"
+                aria-haspopup="true" aria-expanded="false"
+                aria-controls="nav-menu-orchestration">Orchestration</button>
+        <div class="nav-dropdown" id="nav-menu-orchestration" role="menu">
+          <button class="nav-view-btn" role="menuitem" type="button" data-view="kanban">Kanban</button>
+        </div>
+      </div>
+      <div class="nav-pillar nav-pillar-governance" data-pillar="governance">
+        <button class="nav-pillar-trigger" type="button"
+                aria-haspopup="true" aria-expanded="false"
+                aria-controls="nav-menu-governance">Governance</button>
+        <div class="nav-dropdown" id="nav-menu-governance" role="menu">
+          <button class="nav-view-btn" role="menuitem" type="button" data-view="engagement">Engagement</button>
+        </div>
+      </div>
+    </nav>
     <span id="topstats"></span>
   </header>
+  <div id="pillar-banner"></div>
   <main>
     <section id="view-dashboard" class="view"></section>
     <section id="view-grid" class="view hidden">
@@ -34,7 +76,9 @@
     <section id="view-history" class="view hidden"></section>
     <section id="view-analytics" class="view hidden"></section>
     <section id="view-learning" class="view hidden"></section>
+    <section id="view-experiments" class="view hidden"></section>
     <section id="view-kanban" class="view hidden"></section>
+    <section id="view-engagement" class="view hidden"></section>
   </main>
   <div id="tools-strip"></div>
   <div id="editor-pane" class="hidden"></div>

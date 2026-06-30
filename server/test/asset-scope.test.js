@@ -142,3 +142,15 @@ test('annotateUnused: missing sessionProjectKey → all memory not applicable', 
   const result = annotateUnused(unused, null, null);
   assert.equal(result.memory[0].applicable, false);
 });
+
+// ── Task 5: tier:2 stamps on brain assets ─────────────────────────────────────
+
+test('annotateUnused stamps tier:2 on brain assets', () => {
+  const out = annotateUnused(
+    { skills: [{ name: 's' }], agents: [{ name: 'a' }], memory: [{ project: 'D--x' }], contextFiles: [{ name: 'CLAUDE.global.md', root: '/h/.claude' }] },
+    'D--x', '/cwd');
+  assert.equal(out.skills[0].tier, 2);
+  assert.equal(out.agents[0].tier, 2);
+  assert.equal(out.memory[0].tier, 2);
+  assert.equal(out.contextFiles[0].tier, 2);
+});

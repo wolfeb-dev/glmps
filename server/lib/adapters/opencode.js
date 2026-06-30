@@ -15,6 +15,7 @@ import { classifyGit } from '../git-events.js';
 
 export const id = 'opencode';
 export const displayName = 'OpenCode';
+export const controllable = false;
 
 const SAFE_ID = /^[A-Za-z0-9_.-]+$/;
 // Delimiter embedded in the descriptor id so extractSnapshot can locate the

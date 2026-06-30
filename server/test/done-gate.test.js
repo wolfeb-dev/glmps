@@ -2,7 +2,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { parseAcceptance, decideDoneGate, parsePorcelain } from '../../hooks/done-gate.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import { parseAcceptance, decideDoneGate, parsePorcelain, readProdRoots } from '../../hooks/done-gate.js';
+
+// --- readProdRoots: config-driven prod roots for the scope-guard (glmps-22) ---
+
+test('readProdRoots reads prodRoots from config.json one level above the hooks dir', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-prodroots-'));
+  fs.writeFileSync(path.join(tmp, 'config.json'), JSON.stringify({ prodRoots: ['D:/glmps_prod', 'D:/live/bin/Custom'] }));
+  assert.deepEqual(readProdRoots(path.join(tmp, 'hooks')), ['D:/glmps_prod', 'D:/live/bin/Custom']);
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
+test('readProdRoots returns [] when config absent, lacks prodRoots, or is invalid', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mc-prodroots-'));
+  assert.deepEqual(readProdRoots(path.join(tmp, 'hooks')), []);                 // absent
+  fs.writeFileSync(path.join(tmp, 'config.json'), JSON.stringify({ backtestProjects: ['x'] }));
+  assert.deepEqual(readProdRoots(path.join(tmp, 'hooks')), []);                 // no prodRoots key
+  fs.writeFileSync(path.join(tmp, 'config.json'), '{not json');
+  assert.deepEqual(readProdRoots(path.join(tmp, 'hooks')), []);                 // invalid json
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
 
 // --- parseAcceptance: frontmatter command extraction ---
 

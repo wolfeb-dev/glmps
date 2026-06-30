@@ -11,6 +11,7 @@ import { classifyGit } from '../git-events.js';
 
 export const id = 'hermes';
 export const displayName = 'Hermes';
+export const controllable = false;
 
 // Load DatabaseSync via require() so the module still imports when node:sqlite is absent.
 const require_ = createRequire(import.meta.url);

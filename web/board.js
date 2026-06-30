@@ -2,7 +2,7 @@
 // XSS discipline: textContent/createElement only; innerHTML only to clear.
 import {
   getBacklog, addBacklogItem, updateBacklogItem, setBacklogPaused,
-  reorderBacklog, getProjects, getRunner, setRunnerConfig,
+  reorderBacklog, getProjects, getRunner, setRunnerConfig, approveBacklogItem,
 } from './api.js';
 import {
   orderedColumns, filterItems, groupByLane, groupByColumn, joinRunner,
@@ -55,7 +55,7 @@ function priorityPill(priority) {
 // ── Card builder ──────────────────────────────────────────────────────────────
 function card(it) {
   const el = document.createElement('div');
-  el.className = 'backlog-card' + (it.live ? ' live' : '');
+  el.className = 'backlog-card' + (it.live ? ' live' : '') + (it.quarantined ? ' quarantined' : '');
   el.dataset.id = it.id;
 
   // Title row (with optional priority pill)
@@ -69,6 +69,19 @@ function card(it) {
 
   const pill = priorityPill(it.priority);
   if (pill) titleRow.appendChild(pill);
+
+  // Poison-quarantine flag: the ticket was held by the intake poison-scanner.
+  if (it.quarantined) {
+    const flag = document.createElement('span');
+    flag.className = 'backlog-card-flag';
+    flag.textContent = 'quarantined';
+    const flags = it.provenance && Array.isArray(it.provenance.flags) ? it.provenance.flags : [];
+    const reason = flags.length ? `Poison-scanner flagged: ${flags.join(', ')}. Review before approving.`
+                               : 'Held by the poison-scanner. Review before approving.';
+    flag.title = reason;
+    flag.setAttribute('aria-label', reason);
+    titleRow.appendChild(flag);
+  }
   el.appendChild(titleRow);
 
   // Meta
@@ -109,6 +122,21 @@ function card(it) {
         await refreshBacklog();
       });
       actions.appendChild(queue);
+    }
+
+    // Approve releases a poison-quarantined ticket (operator-only gate).
+    if (it.quarantined) {
+      const approve = document.createElement('button');
+      approve.className = 'backlog-card-action approve';
+      approve.textContent = 'Approve';
+      approve.title = 'Release this quarantined ticket so the runner can launch it';
+      approve.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try { await approveBacklogItem(it.id); }
+        catch { emit('Failed to approve item'); }
+        await refreshBacklog();
+      });
+      actions.appendChild(approve);
     }
 
     el.appendChild(actions);
@@ -269,11 +297,21 @@ function mountNav() {
   }).catch(() => {});
 }
 
+// Swap the active highlight on the existing nav rows in place. Re-rendering the
+// whole rail on every click (the old behavior) flickered on rapid clicks.
+function highlightNavRow(key) {
+  if (!kanbanRail) return;
+  const want = key == null ? 'all' : key;
+  for (const row of kanbanRail.querySelectorAll('.dash-nav-selectable')) {
+    row.classList.toggle('is-focused', row.dataset.projKey === want);
+  }
+}
+
 function setBoardProject(key) {
   state.project = key; // 'all' or a project key
   if (projectSelect) projectSelect.value = key;
   refreshBacklog();
-  mountNav(); // re-render so .is-focused highlight moves
+  highlightNavRow(key); // move the highlight in place instead of re-rendering the rail
 }
 
 // ── renderBacklog — builds toolbar + columns container once ───────────────────

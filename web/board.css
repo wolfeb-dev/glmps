@@ -396,6 +396,40 @@
   border-color: rgba(74,140,216,.4);
 }
 
+/* ── Poison-quarantine flag ─────────────────────────
+   A ticket auto-held by the poison-scanner. Reads as a danger state, visually
+   distinct from the priority pills (filled, not outlined) and accented on the
+   card edge so a held ticket is obvious at a glance. */
+.backlog-card.quarantined {
+  border-left: 3px solid var(--destructive);
+}
+.backlog-card-flag {
+  display: inline-block;
+  font-size: var(--fs-micro);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 1px;
+  color: var(--bg);
+  background: var(--destructive);
+  border: 1px solid var(--destructive);
+  cursor: help;
+}
+.backlog-card-action.approve {
+  color: var(--destructive);
+  border-color: rgba(224,86,86,.4);
+}
+.backlog-card-action.approve:hover {
+  color: var(--bg);
+  background: var(--destructive);
+  border-color: var(--destructive);
+}
+
 /* ── Swimlanes ──────────────────────────────────── */
 .backlog-swimlane {
   display: flex;

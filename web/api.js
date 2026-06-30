@@ -61,6 +61,7 @@ export async function setLearningConfig(autoApplyGaps) {
   return (await fetch('/api/learning/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ autoApplyGaps }) })).json();
 }
 export async function fetchBudget() { return (await fetch('/api/budget')).json(); }
+export async function fetchEngagement() { return (await fetch('/api/engagement')).json(); }
 export async function getAgents() { return (await fetch('/api/agents')).json(); }
 export async function getGraph(project, session) {
   const q = new URLSearchParams();
@@ -80,6 +81,9 @@ export async function updateBacklogItem(id, patch) {
 }
 export async function setBacklogPaused(paused) {
   return (await fetch('/api/backlog/pause', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ paused }) })).json();
+}
+export async function approveBacklogItem(id) {
+  return (await fetch(`/api/backlog/${encodeURIComponent(id)}/approve`, { method: 'POST' })).json();
 }
 
 // ── Queue runner ─────────────────────────────────────────────────────────────

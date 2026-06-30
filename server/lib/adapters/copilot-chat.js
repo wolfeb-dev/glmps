@@ -5,6 +5,7 @@ import { cleanTitle } from './clean-title.js';
 
 export const id = 'copilot-chat';
 export const displayName = 'VS Code Copilot Chat';
+export const controllable = false;
 
 export function detect(P) {
   const installed = P.vscodeStorageDirs.some(d => {

@@ -9,6 +9,7 @@ import { classifyGit } from '../git-events.js';
 
 export const id = 'gemini-cli';
 export const displayName = 'Gemini CLI';
+export const controllable = false;
 
 export function detect(P) {
   let installed = false;

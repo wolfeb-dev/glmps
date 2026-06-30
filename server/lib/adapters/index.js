@@ -61,6 +61,27 @@ function dirExists(d) {
 }
 
 /**
+ * Returns true iff the adapter with the given toolId has controllable===true.
+ * @param {string} toolId
+ * @returns {boolean}
+ */
+export function isControllable(toolId) {
+  return adapters.find(a => a.id === toolId)?.controllable === true;
+}
+
+/**
+ * Returns true iff at least one installed adapter is also controllable.
+ * @param {object} P - getPaths() result
+ * @returns {boolean}
+ */
+export function anyControllable(P) {
+  return adapters.some(a => {
+    if (a.controllable !== true) return false;
+    try { return a.detect(P).installed === true; } catch { return false; }
+  });
+}
+
+/**
  * Run detect() on every adapter and return a summary array.
  * Also includes detect-only entries (depth:'detect-only').
  * @param {object} P - getPaths() result

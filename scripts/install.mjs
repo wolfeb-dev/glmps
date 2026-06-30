@@ -48,7 +48,7 @@ function writeSettings(obj) {
 
 // --- A) repo-root config.json --------------------------------------------
 
-function ensureConfig() {
+export function ensureConfig() {
   const configFile = path.join(repoRoot, 'config.json');
   const exampleFile = path.join(repoRoot, 'config.example.json');
   if (fs.existsSync(configFile)) {
@@ -65,7 +65,7 @@ function ensureConfig() {
 
 // --- B) statusline tap (mirrors taps/install-tap.js) ----------------------
 
-function installStatusline() {
+export function installStatusline() {
   let settings;
   try {
     settings = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'));
@@ -108,7 +108,7 @@ function uninstallStatusline() {
 
 // --- C) capability-reminder hook -----------------------------------------
 
-function installHook() {
+export function installHook() {
   const settings = readSettings();
   const { patched, alreadyInstalled } = buildHookPatch(settings, hookCommand);
   if (alreadyInstalled) {
@@ -131,16 +131,19 @@ function uninstallHook() {
 }
 
 // --- run ------------------------------------------------------------------
+// Guard: only execute when this file is run directly, not when imported.
 
-if (uninstall) {
-  console.log('GLMPS: uninstalling...');
-  uninstallStatusline();
-  uninstallHook();
-  console.log('Done. (config.json left in place.)');
-} else {
-  console.log(`GLMPS: installing (repo: ${repoRoot})...`);
-  ensureConfig();
-  installStatusline();
-  installHook();
-  console.log('Done. Run the dashboard with: node server/server.js');
+if (process.argv[1] && import.meta.url === url.pathToFileURL(process.argv[1]).href) {
+  if (uninstall) {
+    console.log('GLMPS: uninstalling...');
+    uninstallStatusline();
+    uninstallHook();
+    console.log('Done. (config.json left in place.)');
+  } else {
+    console.log(`GLMPS: installing (repo: ${repoRoot})...`);
+    ensureConfig();
+    installStatusline();
+    installHook();
+    console.log('Done. Run the dashboard with: node server/server.js');
+  }
 }

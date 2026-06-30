@@ -8,6 +8,7 @@ import { cleanTitle } from './clean-title.js';
 
 export const id = 'openclaw';
 export const displayName = 'OpenClaw';
+export const controllable = false;
 
 const HOME = os.homedir();
 
